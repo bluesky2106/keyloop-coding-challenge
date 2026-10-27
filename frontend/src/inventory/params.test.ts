@@ -31,6 +31,11 @@ describe('parseParams', () => {
     })
   })
 
+  it('ignores a model when no make is chosen, since the UI cannot show or change one', () => {
+    expect(parseParams(new URLSearchParams('model_id=o')).modelId).toBe('')
+    expect(parseParams(new URLSearchParams('make_id=m&model_id=o')).modelId).toBe('o')
+  })
+
   it('maps aging=false to not_aging', () => {
     expect(parseParams(new URLSearchParams('aging=false')).aging).toBe('not_aging')
   })
@@ -44,6 +49,9 @@ describe('parseParams', () => {
     ['page=-2', 'page', 1],
     ['page=1.5', 'page', 1],
     ['page=abc', 'page', 1],
+    ['page=2147483648', 'page', 1],
+    ['min_age_days=100001', 'minAge', ''],
+    ['max_age_days=99999999999999999999', 'maxAge', ''],
   ])('ignores a malformed value (%s)', (query, key, expected) => {
     expect(parseParams(new URLSearchParams(query))[key as keyof InventoryParams]).toBe(expected)
   })

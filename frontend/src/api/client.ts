@@ -13,7 +13,7 @@ const withToken: Middleware = {
     // An expired or revoked token on any call signs the user out: the app reacts to the
     // token disappearing. A failed login is also a 401 but there is no session to end.
     if (response.status === 401 && !new URL(request.url).pathname.endsWith('/auth/login')) {
-      tokenStore.clear()
+      tokenStore.clear('expired')
     }
     return response
   },

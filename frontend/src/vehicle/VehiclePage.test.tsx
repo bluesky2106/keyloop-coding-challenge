@@ -1,5 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react'
-import { http, HttpResponse } from 'msw'
+import { delay, http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import type { VehicleAction } from '../api/types'
 import { action, agingVehicle, ids } from '../test/fixtures'
@@ -170,6 +170,39 @@ describe('logging an action', () => {
     // The form is ready for the next action.
     expect(screen.getByLabelText('Action')).toHaveValue('')
     expect(screen.getByLabelText('Note (optional)')).toHaveValue('')
+  })
+
+  it('reports success straight away, without waiting for the views to refresh', async () => {
+    let reads = 0
+    server.use(
+      http.get(url('/vehicles/:id/actions'), async () => {
+        reads += 1
+        if (reads > 1) await delay('infinite') // the refresh after saving never answers
+        return HttpResponse.json({ items: [] })
+      }),
+      http.post(url('/vehicles/:id/actions'), () => HttpResponse.json(action(), { status: 201 })),
+    )
+    const { user } = renderApp({ route: agingPath })
+    await screen.findByText('No actions have been logged yet.')
+
+    await user.selectOptions(screen.getByLabelText('Action'), 'Hold')
+    await user.click(screen.getByRole('button', { name: 'Log action' }))
+
+    expect(await screen.findByText('Action logged.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Log action' })).toBeEnabled()
+  })
+
+  it('stops showing the last outcome once the user starts the next action', async () => {
+    statefulActions()
+    const { user } = renderApp({ route: agingPath })
+    await screen.findByText('No actions have been logged yet.')
+    await user.selectOptions(screen.getByLabelText('Action'), 'Hold')
+    await user.click(screen.getByRole('button', { name: 'Log action' }))
+    await screen.findByText('Action logged.')
+
+    await user.selectOptions(screen.getByLabelText('Action'), 'Transfer planned')
+
+    expect(screen.queryByText('Action logged.')).not.toBeInTheDocument()
   })
 
   it('sends no note when the note is blank', async () => {

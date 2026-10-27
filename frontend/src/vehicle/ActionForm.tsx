@@ -21,6 +21,9 @@ export function ActionForm({ vehicleId }: { vehicleId: string }) {
   const [note, setNote] = useState('')
   const fields = log.error instanceof ApiError ? log.error.fields : {}
   const id = useId()
+  const clearOutcome = () => {
+    if (!log.isIdle) log.reset()
+  }
   const typeErrorId = `${id}-type-error`
   const noteHintId = `${id}-note-hint`
   const noteErrorId = `${id}-note-error`
@@ -50,6 +53,7 @@ export function ActionForm({ vehicleId }: { vehicleId: string }) {
           value={actionType}
           onChange={(e) => {
             setActionType(e.target.value as ActionType | '')
+            clearOutcome()
           }}
           required
           aria-invalid={Boolean(fields.action_type)}
@@ -76,6 +80,7 @@ export function ActionForm({ vehicleId }: { vehicleId: string }) {
           value={note}
           onChange={(e) => {
             setNote(e.target.value)
+            clearOutcome()
           }}
           maxLength={MAX_NOTE}
           rows={3}

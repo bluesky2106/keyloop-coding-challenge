@@ -1,5 +1,5 @@
 import { useState, type SyntheticEvent } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router'
+import { Navigate, useLocation } from 'react-router'
 import { ApiError } from '../api/errors'
 import { useAuth } from './useAuth'
 
@@ -17,21 +17,23 @@ function messageFor(error: unknown): string {
 
 export function LoginPage() {
   const { isAuthenticated, login } = useAuth()
-  const navigate = useNavigate()
   const from = (useLocation().state as LocationState | null)?.from
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
 
-  if (isAuthenticated) return <Navigate to="/" replace />
+  // Signing in flips isAuthenticated, so this one redirect is the only way out of the page.
+  // It goes straight to where the visitor was headed, not via the inventory.
+  if (isAuthenticated) {
+    return <Navigate to={from ? `${from.pathname}${from.search}` : '/'} replace />
+  }
 
   async function submit(): Promise<void> {
     setPending(true)
     setError(null)
     try {
       await login(username, password)
-      void navigate(from ? `${from.pathname}${from.search}` : '/', { replace: true })
     } catch (err) {
       setError(messageFor(err))
       setPending(false)

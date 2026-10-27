@@ -15,8 +15,14 @@ export function useAuth() {
   }, [])
 
   const logout = useCallback((): void => {
-    tokenStore.clear()
+    tokenStore.clear('signed-out')
   }, [])
 
-  return { isAuthenticated: token !== null, login, logout }
+  return {
+    isAuthenticated: token !== null,
+    /** True when the user ended the session themselves, as opposed to it expiring. */
+    signedOutByUser: token === null && tokenStore.endReason() === 'signed-out',
+    login,
+    logout,
+  }
 }

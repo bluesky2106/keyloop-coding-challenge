@@ -3,7 +3,8 @@ import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { tokenStore } from '../api/tokenStore'
 import { renderApp } from '../test/render'
-import { apiError, server, url } from '../test/server'
+import { agingVehicle } from '../test/fixtures'
+import { apiError, captureVehicleRequests, server, url } from '../test/server'
 
 async function signIn(
   user: ReturnType<typeof renderApp>['user'],
@@ -86,6 +87,18 @@ describe('signing in', () => {
     )
   })
 
+  it('goes straight to a deep link without loading the inventory on the way', async () => {
+    const requests = captureVehicleRequests()
+    const { user } = renderApp({ route: `/vehicles/${agingVehicle.id}`, token: null })
+    await screen.findByRole('heading', { name: 'Sign in' })
+
+    await signIn(user, 'alice', 'secret')
+
+    expect(await screen.findByRole('heading', { name: /Toyota Corolla/ })).toBeInTheDocument()
+    expect(screen.getByTestId('location')).toHaveTextContent(`/vehicles/${agingVehicle.id}`)
+    expect(requests).toHaveLength(0)
+  })
+
   it('does not show the login form to someone already signed in', async () => {
     renderApp({ route: '/login' })
 
@@ -104,6 +117,17 @@ describe('signing out', () => {
     expect(tokenStore.get()).toBeNull()
   })
 
+  it('does not send the next person to the page the last one was on', async () => {
+    const { user } = renderApp({ route: `/vehicles/${agingVehicle.id}?x=1` })
+    await screen.findByRole('heading', { name: /Toyota Corolla/ })
+
+    await user.click(screen.getByRole('button', { name: 'Sign out' }))
+    await signIn(user, 'alice', 'secret')
+
+    expect(await screen.findByRole('heading', { name: 'Inventory' })).toBeInTheDocument()
+    expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/)
+  })
+
   it('does not show the previous user their data after the next sign-in', async () => {
     const { user, client } = renderApp()
     await screen.findByText('Toyota Corolla')
@@ -114,6 +138,25 @@ describe('signing out', () => {
     await waitFor(() => {
       expect(client.getQueryCache().getAll()).toHaveLength(0)
     })
+  })
+
+  it('returns to the same page after an expiry, unlike a deliberate sign-out', async () => {
+    let calls = 0
+    server.use(
+      http.get(url('/vehicles'), () => {
+        calls += 1
+        return calls === 1
+          ? apiError(401, 'unauthorized', 'expired')
+          : HttpResponse.json({ items: [], page: 1, page_size: 25, total: 0 })
+      }),
+    )
+    const { user } = renderApp({ route: '/?aging=true' })
+    await screen.findByRole('heading', { name: 'Sign in' })
+
+    await signIn(user, 'alice', 'secret')
+
+    expect(await screen.findByRole('heading', { name: 'Inventory' })).toBeInTheDocument()
+    expect(screen.getByTestId('location')).toHaveTextContent('/?aging=true')
   })
 
   it('signs the user out when the API rejects the token', async () => {

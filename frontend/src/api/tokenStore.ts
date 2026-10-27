@@ -13,7 +13,11 @@ function read(): string | null {
   }
 }
 
+/** Why the session ended: the user chose to, or the API rejected the token. */
+export type EndReason = 'signed-out' | 'expired'
+
 let token: string | null = read()
+let endReason: EndReason | null = null
 const listeners = new Set<() => void>()
 
 function emit(): void {
@@ -28,6 +32,7 @@ export const tokenStore = {
 
   set: (value: string): void => {
     token = value
+    endReason = null
     try {
       sessionStorage.setItem(KEY, value)
     } catch {
@@ -36,8 +41,12 @@ export const tokenStore = {
     emit()
   },
 
-  clear: (): void => {
+  /** Why the last session ended; null while signed in or if it never started. */
+  endReason: (): EndReason | null => endReason,
+
+  clear: (reason: EndReason = 'expired'): void => {
     token = null
+    endReason = reason
     try {
       sessionStorage.removeItem(KEY)
     } catch {

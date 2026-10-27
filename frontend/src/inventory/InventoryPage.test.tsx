@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
-import { action, agingVehicle, freshVehicle, ids } from '../test/fixtures'
+import { action, agingVehicle, freshVehicle, ids, makes } from '../test/fixtures'
 import { renderApp } from '../test/render'
 import { apiError, captureVehicleRequests, server, url } from '../test/server'
 
@@ -115,6 +115,58 @@ describe('the inventory list', () => {
     await user.click(screen.getByRole('button', { name: 'Try again' }))
 
     expect(await screen.findByText('Toyota Corolla')).toBeInTheDocument()
+  })
+})
+
+describe('when the filters or lists cannot be loaded', () => {
+  it('offers to clear filters the server rejects, since asking again would fail the same way', async () => {
+    server.use(
+      http.get(url('/vehicles'), ({ request }) =>
+        new URL(request.url).searchParams.has('min_age_days')
+          ? apiError(400, 'validation_error', 'invalid query parameters')
+          : HttpResponse.json({ items: [agingVehicle], page: 1, page_size: 25, total: 1 }),
+      ),
+    )
+    const { user } = renderApp({ route: '/?min_age_days=100&max_age_days=5' })
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'These filters cannot be applied: invalid query parameters',
+    )
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+    await user.click(screen.getAllByRole('button', { name: 'Clear filters' })[0])
+
+    expect(await screen.findByText('Toyota Corolla')).toBeInTheDocument()
+    expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/)
+  })
+
+  it('does not filter by a model the page cannot show', async () => {
+    const requests = captureVehicleRequests()
+    renderApp({ route: `/?model_id=${ids.corolla}` })
+
+    await screen.findByText('Toyota Corolla')
+    expect(requests[0].has('model_id')).toBe(false)
+  })
+
+  it('says when the make and model lists fail, and recovers on retry', async () => {
+    let attempts = 0
+    server.use(
+      http.get(url('/makes'), () => {
+        attempts += 1
+        return attempts === 1
+          ? apiError(500, 'internal_error', 'boom')
+          : HttpResponse.json({ items: makes })
+      }),
+    )
+    const { user } = renderApp()
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Could not load the make and model lists.')
+    await user.click(within(alert).getByRole('button', { name: 'Try again' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Toyota' })).toBeInTheDocument()
+    })
+    expect(screen.queryByText('Could not load the make and model lists.')).not.toBeInTheDocument()
   })
 })
 

@@ -16,6 +16,7 @@ export interface InventoryParams {
 
 export const PAGE_SIZE = 25
 export const MAX_AGE_DAYS = 100000
+export const MAX_PAGE = 2147483647
 export const SORTS: { value: VehicleSort; label: string }[] = [
   { value: 'age_desc', label: 'Oldest first' },
   { value: 'age_asc', label: 'Newest first' },
@@ -26,7 +27,7 @@ export const SORTS: { value: VehicleSort; label: string }[] = [
 const DEFAULT_SORT: VehicleSort = 'age_desc'
 
 function digits(value: string | null): string {
-  return value !== null && /^\d+$/.test(value) ? value : ''
+  return value !== null && /^\d+$/.test(value) && Number(value) <= MAX_AGE_DAYS ? value : ''
 }
 
 /** Reads the filters from a query string, ignoring anything malformed. */
@@ -34,14 +35,17 @@ export function parseParams(search: URLSearchParams): InventoryParams {
   const aging = search.get('aging')
   const sort = search.get('sort')
   const page = Number(search.get('page'))
+  const makeId = search.get('make_id') ?? ''
   return {
-    makeId: search.get('make_id') ?? '',
-    modelId: search.get('model_id') ?? '',
+    makeId,
+    // The model list is only offered once a make is chosen, so a model without a make
+    // would be a filter the user could not see or change. Ignore it.
+    modelId: makeId ? (search.get('model_id') ?? '') : '',
     aging: aging === 'true' ? 'aging' : aging === 'false' ? 'not_aging' : 'all',
     minAge: digits(search.get('min_age_days')),
     maxAge: digits(search.get('max_age_days')),
     sort: SORTS.some((s) => s.value === sort) ? (sort as VehicleSort) : DEFAULT_SORT,
-    page: Number.isInteger(page) && page >= 1 ? page : 1,
+    page: Number.isInteger(page) && page >= 1 && page <= MAX_PAGE ? page : 1,
   }
 }
 

@@ -14,6 +14,20 @@ describe('tokenStore', () => {
     expect(tokenStore.get()).toBeNull()
   })
 
+  it('remembers why the session ended, and forgets it on the next sign-in', () => {
+    tokenStore.set('abc')
+    expect(tokenStore.endReason()).toBeNull()
+
+    tokenStore.clear('signed-out')
+    expect(tokenStore.endReason()).toBe('signed-out')
+
+    tokenStore.set('def')
+    expect(tokenStore.endReason()).toBeNull()
+
+    tokenStore.clear()
+    expect(tokenStore.endReason()).toBe('expired')
+  })
+
   it('persists the token for the tab, so a refresh keeps the session', async () => {
     tokenStore.set('abc')
     expect(sessionStorage.getItem('keyloop.access_token')).toBe('abc')

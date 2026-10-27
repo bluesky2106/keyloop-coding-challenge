@@ -81,13 +81,12 @@ export function useLogAction(vehicleId: string) {
           body: input,
         }),
       ),
-    onSuccess: async () => {
-      // The history, the vehicle's current action and the list all change.
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['actions', vehicleId] }),
-        queryClient.invalidateQueries({ queryKey: ['vehicle', vehicleId] }),
-        queryClient.invalidateQueries({ queryKey: ['vehicles'] }),
-      ])
+    onSuccess: () => {
+      // The history, the vehicle's current action and the list all change. The action is
+      // saved, so report success now and let the views refresh in the background.
+      void queryClient.invalidateQueries({ queryKey: ['actions', vehicleId] })
+      void queryClient.invalidateQueries({ queryKey: ['vehicle', vehicleId] })
+      void queryClient.invalidateQueries({ queryKey: ['vehicles'] })
     },
   })
 }
