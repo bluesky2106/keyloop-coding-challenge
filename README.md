@@ -17,8 +17,18 @@ Requires Go 1.26+, Node 24+, Docker and [golangci-lint](https://golangci-lint.ru
 ```sh
 cp .env.example .env   # once
 make up      # start Postgres
-make check   # lint, type-check and test backend + frontend
+make seed    # apply migrations and load the demo data (safe to repeat)
+make run     # start the API on :8080
+make check   # lint, type-check and test backend + frontend (needs `make up`)
 make help    # all targets
+```
+
+Try it (demo credentials from `backend/seed/users.csv`):
+
+```sh
+curl -s -X POST localhost:8080/api/v1/auth/login \
+  -d '{"username":"northside.manager","password":"demo-northside-1"}'
+curl -s localhost:8080/api/v1/me -H "Authorization: Bearer <access_token>"
 ```
 
 ## Layout

@@ -107,7 +107,7 @@ ORDER BY v.stocked_at;
 
 ## Migrations
 
-Numbered SQL files in `backend/migrations/`, applied with golang-migrate (`migrate -path backend/migrations -database "$DATABASE_URL" up`). Applied migrations are never edited; changes are new files. Every migration has a down file.
+Numbered SQL files in `backend/migrations/`, embedded in the API binary and applied with golang-migrate when the API (or the seed command) starts, so a fresh database needs no manual step. The same files also work with the `migrate` CLI. Applied migrations are never edited; changes are new files. Every migration has a down file.
 
 ## Seed data
 
@@ -124,7 +124,7 @@ Vehicles use `age_days` rather than a fixed date, and the loader sets `stocked_a
 
 The data has 3 dealerships, 7 makes, 21 models, 6 users and 150 vehicles (50 per dealership); about 27% are over 90 days old. Each dealership includes vehicles at exactly 90 and 91 days to exercise the boundary.
 
-The loader inserts with `ON CONFLICT DO NOTHING` on the natural keys (dealership name, make name, `(make, model)`, username, `(dealership, vin)`), so it can be re-run safely. It is implemented together with the backend.
+The loader inserts with `ON CONFLICT DO NOTHING` on the natural keys (dealership name, make name, `(make, model)`, username, `(dealership, vin)`), so it can be re-run safely. It is implemented in `backend/internal/seed` and run with `make seed`. Passwords are bcrypt-hashed on load, and rows that reference an unknown dealership or model fail the whole load before anything is written.
 
 ## Verification
 

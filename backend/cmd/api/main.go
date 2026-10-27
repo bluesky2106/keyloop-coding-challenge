@@ -11,11 +11,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bluesky2106/keyloop-coding-challenge/backend/internal/api"
+	"github.com/bluesky2106/keyloop-coding-challenge/backend/internal/auth"
+	"github.com/bluesky2106/keyloop-coding-challenge/backend/internal/config"
 	"github.com/bluesky2106/keyloop-coding-challenge/backend/internal/platform"
 )
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
 	if err := run(logger); err != nil {
 		logger.Error("server failed", "err", err)
 		os.Exit(1)
@@ -23,23 +27,38 @@ func main() {
 }
 
 func run(logger *slog.Logger) error {
-	addr := ":8080"
-	if v := os.Getenv("ADDR"); v != "" {
-		addr = v
-	}
-
-	srv := &http.Server{
-		Addr:              addr,
-		Handler:           platform.NewRouter(),
-		ReadHeaderTimeout: 5 * time.Second,
+	cfg, err := config.Load(os.Getenv)
+	if err != nil {
+		return err
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	if err := platform.Migrate(cfg.DatabaseURL); err != nil {
+		return err
+	}
+	pool, err := platform.Connect(ctx, cfg.DatabaseURL)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	tokens := auth.NewTokens(cfg.JWTSecret, cfg.JWTTTL)
+	authSvc, err := auth.NewService(pool, tokens)
+	if err != nil {
+		return err
+	}
+
+	srv := &http.Server{
+		Addr:              cfg.Addr,
+		Handler:           api.NewRouter(authSvc, tokens),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
 	serveErr := make(chan error, 1)
 	go func() {
-		logger.Info("listening", "addr", addr)
+		logger.Info("listening", "addr", cfg.Addr)
 		serveErr <- srv.ListenAndServe()
 	}()
 
