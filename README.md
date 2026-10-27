@@ -10,7 +10,7 @@ Keyloop technical assessment, Scenario B. A multi-dealership dashboard that show
 - [Assessment brief](docs/reference/keyloop_technical_assessment.md)
 
 ## Getting started
-Requires Go, Node 24+, Docker and [golangci-lint](https://golangci-lint.run) v2.
+Requires Go 1.26+, Node 24+, Docker and [golangci-lint](https://golangci-lint.run) v2.
 
 ```sh
 make up      # start Postgres

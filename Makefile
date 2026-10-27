@@ -14,7 +14,7 @@ fmt: ## Format backend and frontend
 	cd frontend && npm run format
 
 lint: ## Lint, format-check and type-check both apps
-	cd backend && golangci-lint run ./... && go vet ./...
+	cd backend && golangci-lint run ./...
 	cd frontend && npm run lint && npm run format:check && npm run typecheck
 
 test: ## Run all tests

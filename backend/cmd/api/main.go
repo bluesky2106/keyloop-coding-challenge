@@ -10,36 +10,52 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/bluesky2106/keyloop-coding-challenge/backend/internal/platform"
 )
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	if err := run(logger); err != nil {
+		logger.Error("server failed", "err", err)
+		os.Exit(1)
+	}
+}
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
+func run(logger *slog.Logger) error {
+	addr := ":8080"
+	if v := os.Getenv("ADDR"); v != "" {
+		addr = v
+	}
 
 	srv := &http.Server{
-		Addr:              ":8080",
-		Handler:           mux,
+		Addr:              addr,
+		Handler:           platform.NewRouter(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	serveErr := make(chan error, 1)
 	go func() {
-		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Error("server failed", "err", err)
-			stop()
-		}
+		logger.Info("listening", "addr", addr)
+		serveErr <- srv.ListenAndServe()
 	}()
 
-	<-ctx.Done()
+	select {
+	case err := <-serveErr:
+		return err
+	case <-ctx.Done():
+	}
+
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		logger.Error("shutdown failed", "err", err)
+		return err
 	}
+	if err := <-serveErr; !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
 }
