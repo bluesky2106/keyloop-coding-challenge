@@ -99,8 +99,12 @@ func validate(req createRequest) (*string, map[string]string) {
 	var note *string
 	if req.Note != nil {
 		trimmed := strings.TrimSpace(*req.Note)
-		if utf8.RuneCountInString(trimmed) > maxNoteLen {
+		switch {
+		case utf8.RuneCountInString(trimmed) > maxNoteLen:
 			fields["note"] = "must be at most 500 characters"
+		case strings.ContainsRune(trimmed, 0):
+			// Postgres text cannot hold NUL; without this the insert fails with a 500.
+			fields["note"] = "must not contain NUL characters"
 		}
 		if trimmed != "" {
 			note = &trimmed

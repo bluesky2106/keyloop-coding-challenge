@@ -16,6 +16,9 @@ import (
 const (
 	defaultPageSize = 25
 	maxPageSize     = 100
+	// maxAgeDays keeps CURRENT_DATE - n inside the range of the SQL date type (a value
+	// near 2^31 makes Postgres fail with "date out of range"). 100000 days is 273 years.
+	maxAgeDays = 100000
 )
 
 // Reader is what the handlers need from the service.
@@ -131,11 +134,11 @@ func parseFilter(q url.Values) (Filter, map[string]string) {
 	}
 
 	if v := q.Get("page"); v != "" {
-		n, err := strconv.Atoi(v)
+		n, err := strconv.ParseInt(v, 10, 32)
 		if err != nil || n < 1 {
 			fields["page"] = "must be an integer of at least 1"
 		}
-		f.Page = n
+		f.Page = int(n)
 	}
 	if v := q.Get("page_size"); v != "" {
 		n, err := strconv.Atoi(v)
@@ -152,10 +155,11 @@ func parseAge(q url.Values, name string, fields map[string]string) *int {
 	if v == "" {
 		return nil
 	}
-	n, err := strconv.Atoi(v)
-	if err != nil || n < 0 {
-		fields[name] = "must be a non-negative integer"
+	n, err := strconv.ParseInt(v, 10, 32)
+	if err != nil || n < 0 || n > maxAgeDays {
+		fields[name] = "must be an integer between 0 and 100000"
 		return nil
 	}
-	return &n
+	age := int(n)
+	return &age
 }

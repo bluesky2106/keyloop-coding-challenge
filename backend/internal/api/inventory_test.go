@@ -220,11 +220,25 @@ func TestVehicleLookups(t *testing.T) {
 func TestInvalidQueriesAreRejected(t *testing.T) {
 	a := newApp(t)
 	token := a.login("northside.manager", "demo-northside-1")
-	for _, q := range []string{"aging=maybe", "sort=colour", "page=0", "page_size=500", "min_age_days=9&max_age_days=1", "make_id=1"} {
+	for _, q := range []string{"aging=maybe", "sort=colour", "page=0", "page_size=500", "min_age_days=9&max_age_days=1", "make_id=1",
+		"max_age_days=2147483647", "min_age_days=100001", "page=9223372036854775807"} {
 		rec := a.do(http.MethodGet, "/api/v1/vehicles?"+q, "", token)
 		assert.Equal(t, http.StatusBadRequest, rec.Code, q)
 		assert.Equal(t, "validation_error", decodeErr(t, rec).Error.Code, q)
 	}
+}
+
+// Extreme but valid values must not turn into server errors.
+func TestExtremeValidValuesAreHandled(t *testing.T) {
+	a := newApp(t)
+	token := a.login("northside.manager", "demo-northside-1")
+
+	farPage := getJSON[pageJSON](t, a, "/api/v1/vehicles?page=2147483647&page_size=100", token)
+	assert.Empty(t, farPage.Items)
+	assert.Equal(t, 50, farPage.Total, "the total survives a page past the end")
+
+	oldest := getJSON[pageJSON](t, a, "/api/v1/vehicles?max_age_days=100000&min_age_days=100000", token)
+	assert.Empty(t, oldest.Items)
 }
 
 // The write flow gets its own database: it appends actions, and the tests above assume
@@ -309,7 +323,8 @@ func TestLoggingActionsEndToEnd(t *testing.T) {
 	})
 
 	t.Run("invalid input is refused", func(t *testing.T) {
-		for _, body := range []string{`{"action_type":"bogus"}`, `{}`, `nope`, `{"action_type":"hold","note":"` + strings.Repeat("x", 501) + `"}`} {
+		for _, body := range []string{`{"action_type":"bogus"}`, `{}`, `nope`, `{"action_type":"hold","note":"` + strings.Repeat("x", 501) + `"}`,
+			`{"action_type":"hold","note":"a\u0000b"}`} {
 			rec := post(agingVehicle.ID, body)
 			assert.Equal(t, http.StatusBadRequest, rec.Code, body)
 			assert.Equal(t, "validation_error", decodeErr(t, rec).Error.Code, body)

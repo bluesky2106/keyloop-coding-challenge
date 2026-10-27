@@ -156,6 +156,7 @@ func TestHandlerCreate(t *testing.T) {
 		"unknown action type": {`{"action_type":"bogus"}`, "action_type"},
 		"missing action type": {`{"note":"x"}`, "action_type"},
 		"empty action type":   {`{"action_type":""}`, "action_type"},
+		"NUL in note":         {`{"action_type":"hold","note":"a\u0000b"}`, "note"},
 	}
 	for name, tt := range invalid {
 		t.Run(name, func(t *testing.T) {

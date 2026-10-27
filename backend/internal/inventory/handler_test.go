@@ -69,6 +69,8 @@ func TestHandlerListParsesTheQuery(t *testing.T) {
 		{"equal bounds", "?min_age_days=5&max_age_days=5",
 			Filter{MinAgeDays: ptr(5), MaxAgeDays: ptr(5), Sort: SortAgeDesc, Page: 1, PageSize: 25}},
 		{"largest page size", "?page_size=100", Filter{Sort: SortAgeDesc, Page: 1, PageSize: 100}},
+		{"largest age", "?max_age_days=100000",
+			Filter{MaxAgeDays: ptr(100000), Sort: SortAgeDesc, Page: 1, PageSize: 25}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -96,6 +98,10 @@ func TestHandlerListRejectsInvalidQueries(t *testing.T) {
 		{"unknown sort", "?sort=colour", "sort"},
 		{"page zero", "?page=0", "page"},
 		{"page not a number", "?page=first", "page"},
+		{"page beyond int32", "?page=9223372036854775807", "page"},
+		{"age beyond int32", "?max_age_days=3000000000", "max_age_days"},
+		{"age that overflows SQL dates", "?max_age_days=2147483647", "max_age_days"},
+		{"min age beyond the cap", "?min_age_days=100001", "min_age_days"},
 		{"page size zero", "?page_size=0", "page_size"},
 		{"page size over the cap", "?page_size=101", "page_size"},
 		{"page size not a number", "?page_size=lots", "page_size"},
