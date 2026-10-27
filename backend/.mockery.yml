@@ -13,3 +13,14 @@ packages:
   github.com/bluesky2106/keyloop-coding-challenge/backend/internal/seed:
     interfaces:
       DB:
+  github.com/bluesky2106/keyloop-coding-challenge/backend/internal/catalog:
+    interfaces:
+      Store:
+  github.com/bluesky2106/keyloop-coding-challenge/backend/internal/actions:
+    interfaces:
+      Store:
+      Logger:
+  github.com/bluesky2106/keyloop-coding-challenge/backend/internal/inventory:
+    interfaces:
+      Store:
+      Reader:

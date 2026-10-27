@@ -17,6 +17,12 @@ func ClaimsFrom(ctx context.Context) (Claims, bool) {
 	return c, ok
 }
 
+// WithClaims returns ctx carrying the caller's claims. Authenticate uses it; tests of
+// other features use it to act as a signed-in user.
+func WithClaims(ctx context.Context, c Claims) context.Context {
+	return context.WithValue(ctx, ctxKey{}, c)
+}
+
 // Authenticate rejects requests without a valid Bearer token and stores the claims
 // in the request context.
 func Authenticate(tokens *Tokens) func(http.Handler) http.Handler {
@@ -32,7 +38,7 @@ func Authenticate(tokens *Tokens) func(http.Handler) http.Handler {
 				unauthorized(w)
 				return
 			}
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxKey{}, claims)))
+			next.ServeHTTP(w, r.WithContext(WithClaims(r.Context(), claims)))
 		})
 	}
 }

@@ -11,11 +11,19 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bluesky2106/keyloop-coding-challenge/backend/internal/actions"
 	"github.com/bluesky2106/keyloop-coding-challenge/backend/internal/api"
 	"github.com/bluesky2106/keyloop-coding-challenge/backend/internal/auth"
+	"github.com/bluesky2106/keyloop-coding-challenge/backend/internal/catalog"
 	"github.com/bluesky2106/keyloop-coding-challenge/backend/internal/config"
+	"github.com/bluesky2106/keyloop-coding-challenge/backend/internal/inventory"
 	"github.com/bluesky2106/keyloop-coding-challenge/backend/internal/platform"
 )
+
+// agingThresholdDays is the single source of the aging rule: a vehicle is aging when it
+// has been in stock for more than this many days. Making it per-dealership later means
+// changing where this value comes from (see docs/system-design.md, section 7).
+const agingThresholdDays = 90
 
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -48,11 +56,17 @@ func run(ctx context.Context, getenv func(string) string, logger *slog.Logger) e
 	defer pool.Close()
 
 	tokens := auth.NewTokens(cfg.JWTSecret, cfg.JWTTTL)
-	authSvc := auth.NewService(auth.NewPGStore(pool), tokens)
+	handler := api.NewRouter(api.Deps{
+		Tokens:    tokens,
+		Auth:      auth.NewService(auth.NewPGStore(pool), tokens),
+		Catalog:   catalog.NewPGStore(pool),
+		Inventory: inventory.NewService(inventory.NewPGStore(pool), agingThresholdDays),
+		Actions:   actions.NewService(actions.NewPGStore(pool), agingThresholdDays),
+	})
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           api.NewRouter(authSvc, tokens),
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      30 * time.Second,

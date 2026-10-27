@@ -106,7 +106,7 @@ func TestHandlerMe(t *testing.T) {
 		NewHandler(svc).Me(rec, httptest.NewRequestWithContext(ctx, http.MethodGet, "/me", nil))
 		return rec
 	}
-	withClaims := context.WithValue(context.Background(), ctxKey{}, claims)
+	withClaims := WithClaims(context.Background(), claims)
 
 	t.Run("success", func(t *testing.T) {
 		svc := NewMockAuthenticator(t)

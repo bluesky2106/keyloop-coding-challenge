@@ -11,10 +11,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/bluesky2106/keyloop-coding-challenge/backend/internal/actions"
 	"github.com/bluesky2106/keyloop-coding-challenge/backend/internal/auth"
+	"github.com/bluesky2106/keyloop-coding-challenge/backend/internal/catalog"
+	"github.com/bluesky2106/keyloop-coding-challenge/backend/internal/inventory"
 	"github.com/bluesky2106/keyloop-coding-challenge/backend/internal/seed"
 	"github.com/bluesky2106/keyloop-coding-challenge/backend/internal/testdb"
 )
+
+const agingThreshold = 90
 
 var secret = []byte(strings.Repeat("t", 32))
 
@@ -32,6 +39,10 @@ func TestMain(m *testing.M) {
 }
 
 func run(m *testing.M) int {
+	if err := loadSpec(); err != nil {
+		fmt.Fprintln(os.Stderr, "load OpenAPI spec:", err)
+		return 1
+	}
 	pool, cleanup, err := testdb.Setup(true)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -43,8 +54,18 @@ func run(m *testing.M) int {
 		return 1
 	}
 	tokens := auth.NewTokens(secret, time.Hour)
-	shared = NewRouter(auth.NewService(auth.NewPGStore(pool), tokens), tokens)
+	shared = NewRouter(newDeps(pool, tokens))
 	return m.Run()
+}
+
+func newDeps(pool *pgxpool.Pool, tokens *auth.Tokens) Deps {
+	return Deps{
+		Tokens:    tokens,
+		Auth:      auth.NewService(auth.NewPGStore(pool), tokens),
+		Catalog:   catalog.NewPGStore(pool),
+		Inventory: inventory.NewService(inventory.NewPGStore(pool), agingThreshold),
+		Actions:   actions.NewService(actions.NewPGStore(pool), agingThreshold),
+	}
 }
 
 func newApp(t *testing.T) *app {
@@ -60,6 +81,7 @@ func (a *app) do(method, path, body, bearer string) *httptest.ResponseRecorder {
 	}
 	rec := httptest.NewRecorder()
 	a.handler.ServeHTTP(rec, req)
+	checkAgainstSpec(a.t, req, rec)
 	return rec
 }
 
