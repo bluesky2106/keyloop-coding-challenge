@@ -33,7 +33,11 @@ func Migrate(databaseURL string) error {
 	if err != nil {
 		return fmt.Errorf("load migrations: %w", err)
 	}
-	m, err := migrate.NewWithSourceInstance("iofs", src, toPgx5(databaseURL))
+	dsn, ok := toPgx5(databaseURL)
+	if !ok {
+		return errors.New("database URL must start with postgres:// or postgresql://")
+	}
+	m, err := migrate.NewWithSourceInstance("iofs", src, dsn)
 	if err != nil {
 		return fmt.Errorf("init migrate: %w", err)
 	}
@@ -46,11 +50,12 @@ func Migrate(databaseURL string) error {
 }
 
 // toPgx5 rewrites a postgres:// URL to the scheme golang-migrate's pgx driver expects.
-func toPgx5(u string) string {
+// It reports false for anything else, such as a key/value DSN, which migrate cannot use.
+func toPgx5(u string) (string, bool) {
 	for _, p := range []string{"postgresql://", "postgres://"} {
 		if strings.HasPrefix(u, p) {
-			return "pgx5://" + strings.TrimPrefix(u, p)
+			return "pgx5://" + strings.TrimPrefix(u, p), true
 		}
 	}
-	return u
+	return "", false
 }

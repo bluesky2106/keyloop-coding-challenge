@@ -54,6 +54,9 @@ func run(ctx context.Context, getenv func(string) string, logger *slog.Logger) e
 		Addr:              cfg.Addr,
 		Handler:           api.NewRouter(authSvc, tokens),
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	serveErr := make(chan error, 1)

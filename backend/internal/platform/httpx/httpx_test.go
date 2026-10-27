@@ -66,6 +66,15 @@ func TestDecodeJSON(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "x", p.Name)
 
+	_, err = decode(`{"name":"x"}{"name":"y"}`)
+	require.Error(t, err, "a second JSON value must be rejected")
+
+	_, err = decode(`{"name":"x"} garbage`)
+	require.Error(t, err, "trailing data must be rejected")
+
+	_, err = decode("{\"name\":\"x\"}\n  \n")
+	require.NoError(t, err, "trailing whitespace is fine")
+
 	_, err = decode(`{"name":"x","extra":1}`)
 	require.Error(t, err, "unknown fields must be rejected")
 

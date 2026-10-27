@@ -99,7 +99,8 @@ func insert(ctx context.Context, tx pgx.Tx, ds dataset, hashes []string) error {
 		}
 	}
 	for _, v := range ds.vehicles {
-		// stocked_at is derived from age_days so the demo data never goes stale.
+		// stocked_at is derived from age_days at first load, so a fresh demo database has the
+		// intended mix of ages. Rows that already exist are left as they are.
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO vehicles (dealership_id, vin, model_id, year, price, stocked_at)
 			SELECT d.id, $2, m.id, $5::smallint, $6::numeric, CURRENT_DATE - $7::int

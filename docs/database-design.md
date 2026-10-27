@@ -120,7 +120,7 @@ CSV files in `backend/seed/`:
 | `users.csv` | `dealership`, `username`, `password` (plaintext **demo** values, hashed by the loader) |
 | `vehicles.csv` | `dealership`, `vin`, `make`, `model`, `year`, `price`, `age_days` (make and model are names, resolved to `model_id` by the loader) |
 
-Vehicles use `age_days` rather than a fixed date, and the loader sets `stocked_at = CURRENT_DATE - age_days`. Fixed dates would make every vehicle look older each day and eventually turn the whole demo inventory into aging stock.
+Vehicles use `age_days` rather than a fixed date, and the loader sets `stocked_at = CURRENT_DATE - age_days`. Fixed dates would make every vehicle look older each day and eventually turn the whole demo inventory into aging stock. The derivation happens once, when a row is first inserted; reloading does not change existing rows, so a long-lived demo database drifts older. To restore the intended ages, recreate the database (`docker compose down -v`, then `make seed`).
 
 The data has 3 dealerships, 7 makes, 21 models, 6 users and 150 vehicles (50 per dealership); about 27% are over 90 days old. Each dealership includes vehicles at exactly 90 and 91 days to exercise the boundary.
 

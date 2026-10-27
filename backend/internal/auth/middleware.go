@@ -22,8 +22,8 @@ func ClaimsFrom(ctx context.Context) (Claims, bool) {
 func Authenticate(tokens *Tokens) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			raw, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-			if !ok || raw == "" {
+			raw, ok := bearerToken(r.Header.Get("Authorization"))
+			if !ok {
 				unauthorized(w)
 				return
 			}
@@ -35,6 +35,17 @@ func Authenticate(tokens *Tokens) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxKey{}, claims)))
 		})
 	}
+}
+
+// bearerToken extracts the token from an "Authorization: Bearer <token>" header. The
+// scheme name is case-insensitive (RFC 7235).
+func bearerToken(header string) (string, bool) {
+	scheme, token, found := strings.Cut(header, " ")
+	token = strings.TrimSpace(token)
+	if !found || !strings.EqualFold(scheme, "Bearer") || token == "" {
+		return "", false
+	}
+	return token, true
 }
 
 func unauthorized(w http.ResponseWriter) {

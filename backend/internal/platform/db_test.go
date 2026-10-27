@@ -59,6 +59,12 @@ func TestMigrate(t *testing.T) {
 		assert.Contains(t, err.Error(), "apply migrations")
 	})
 
+	t.Run("rejects a database URL that is not postgres://", func(t *testing.T) {
+		err := platform.Migrate("host=localhost dbname=db")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "must start with postgres://")
+	})
+
 	t.Run("unreachable database", func(t *testing.T) {
 		err := platform.Migrate("postgres://u@127.0.0.1:1/db?sslmode=disable&connect_timeout=1")
 		require.Error(t, err)

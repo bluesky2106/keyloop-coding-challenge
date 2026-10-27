@@ -28,6 +28,9 @@ func TestAuthenticate(t *testing.T) {
 		want   int
 	}{
 		{"valid token", "Bearer " + good, http.StatusNoContent},
+		{"scheme is case-insensitive", "bearer " + good, http.StatusNoContent},
+		{"scheme in capitals", "BEARER " + good, http.StatusNoContent},
+		{"extra spaces before the token", "Bearer   " + good, http.StatusNoContent},
 		{"no header", "", http.StatusUnauthorized},
 		{"wrong scheme", "Basic " + good, http.StatusUnauthorized},
 		{"empty bearer", "Bearer ", http.StatusUnauthorized},

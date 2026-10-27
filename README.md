@@ -24,6 +24,8 @@ make mocks   # regenerate test mocks (needs mockery)
 make help    # all targets
 ```
 
+If you ran an earlier version of this repo, its Postgres data volume is incompatible with Postgres 18: run `docker compose down -v` once, then `make up`.
+
 Try it (demo credentials from `backend/seed/users.csv`):
 
 ```sh

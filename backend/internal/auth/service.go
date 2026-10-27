@@ -9,7 +9,8 @@ import (
 )
 
 // ErrInvalidCredentials is returned for an unknown user and a wrong password alike, so
-// callers cannot tell which usernames exist.
+// responses do not reveal which usernames exist. Response time is not equalised: an
+// unknown username skips the bcrypt comparison, so rate-limit login before exposing it.
 var ErrInvalidCredentials = errors.New("invalid credentials")
 
 // ErrUserNotFound is returned by a Store when no user matches, and by Service.Me when a

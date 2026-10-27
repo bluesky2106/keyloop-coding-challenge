@@ -4,6 +4,8 @@ package httpx
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 )
@@ -45,10 +47,16 @@ func Internal(w http.ResponseWriter, err error) {
 	Error(w, http.StatusInternalServerError, "internal_error", "internal server error")
 }
 
-// DecodeJSON reads a single JSON object from the body, rejecting unknown fields
-// and bodies larger than 1 MiB.
+// DecodeJSON reads exactly one JSON value from the body, rejecting unknown fields,
+// trailing data and bodies larger than 1 MiB.
 func DecodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
 	dec.DisallowUnknownFields()
-	return dec.Decode(dst)
+	if err := dec.Decode(dst); err != nil {
+		return err
+	}
+	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return errors.New("request body must contain a single JSON value")
+	}
+	return nil
 }
