@@ -11,7 +11,9 @@ info:
     permissions (see assumption A4 in `docs/system-design.md`).
 
     **Aging.** A vehicle is aging when its age is **greater than** the aging threshold
-    (90 days). Age is derived from `stocked_at` at request time and is never stored.
+    (`aging_threshold_days` in `GET /vehicles/summary`; 90 in this version). Clients read the
+    threshold from the API instead of hardcoding it. Age is derived from `stocked_at` at
+    request time and is never stored.
 servers:
   - url: /api/v1
 security:
@@ -99,7 +101,9 @@ paths:
       summary: List the dealership's vehicles
       description: |
         Filters combine with AND. `make_id` and `model_id` may be combined; a model that does
-        not belong to the make simply matches nothing.
+        not belong to the make simply matches nothing. Filters that cannot match any vehicle
+        (for example `aging=true` with `max_age_days=50`) return an empty page.
+        `min_age_days` greater than `max_age_days` is rejected with `400 validation_error`.
       parameters:
         - name: make_id
           in: query
@@ -126,6 +130,9 @@ paths:
             type: string
             enum: [age_desc, age_asc, price_desc, price_asc]
             default: age_desc
+          description: |
+            Ties are always broken by vehicle `id` ascending, so pages never overlap or skip
+            rows even when many vehicles share an age or a price.
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
       responses:
@@ -170,6 +177,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Vehicle'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -195,6 +204,8 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/VehicleAction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -257,7 +268,7 @@ components:
 
   responses:
     BadRequest:
-      description: Malformed or invalid input (`validation_error`).
+      description: Malformed or invalid input, including a path id that is not a UUID (`validation_error`).
       content:
         application/json:
           schema:
@@ -402,11 +413,11 @@ components:
         vin: { type: string, pattern: '^[A-HJ-NPR-Z0-9]{17}$' }
         make: { $ref: '#/components/schemas/NamedRef' }
         model: { $ref: '#/components/schemas/NamedRef' }
-        year: { type: integer }
+        year: { type: integer, minimum: 1980, maximum: 2100 }
         price:
           type: string
-          pattern: '^\d+\.\d{2}$'
-          description: Decimal amount as a string, to avoid floating-point rounding.
+          pattern: '^\d{1,8}\.\d{2}$'
+          description: Non-negative decimal amount with two places (numeric(10,2)), as a string to avoid floating-point rounding.
         stocked_at: { type: string, format: date }
         age_days:
           type: integer
@@ -443,4 +454,4 @@ components:
         aging: { type: integer, description: Vehicles older than the threshold. }
         aging_threshold_days:
           type: integer
-          description: The threshold in force (90 in this version).
+          description: The threshold in force. Clients must use this value rather than a constant.

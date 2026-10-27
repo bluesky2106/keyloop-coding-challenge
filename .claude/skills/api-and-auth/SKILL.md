@@ -7,7 +7,7 @@ description: REST API, authentication and multi-tenant security rules. Use when 
 
 - `docs/api/openapi.yaml` is the contract. Change it first, then code.
 - REST, JSON, versioned under `/api/v1`. Plural nouns; correct status codes (201 create, 204 no body, 400 validation, 401 unauthenticated, 403 forbidden, 404 not found).
-- Error body is always `{"error": {"code": "...", "message": "..."}}`.
+- Error body is always `{"error": {"code": "...", "message": "..."}}`; `validation_error` may also include `"fields": {"<field>": "<message>"}`. Matches `Error` in `docs/api/openapi.yaml`.
 - Passwords: `bcrypt`, never logged or returned. Login returns a short-lived JWT (HS256, secret from env, `exp` set).
 - JWT claims carry `user_id` and `dealership_id`. Middleware validates the token and puts the claims in the request context.
 - **Tenant isolation:** `dealership_id` always comes from the token, never from the request path/body/query. Every repository method takes it as a parameter. Accessing another dealership's vehicle returns 404.
