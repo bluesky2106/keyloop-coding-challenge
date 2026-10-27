@@ -23,9 +23,9 @@ The brief allows ambiguity as long as it is documented.
 | A1 | "Age" is the number of whole days since the vehicle entered the dealership's stock (`stocked_at`). A vehicle is *aging* when age is **greater than 90** days (90 exactly is not aging). |
 | A2 | Age is computed at query time from `stocked_at` and is never stored, so it cannot go stale. |
 | A3 | The 90-day threshold is a single constant in this version (see 7.1 for the configurable design). |
-| A4 | Each user belongs to exactly one dealership and sees only that dealership's vehicles. |
+| A4 | A dealership has many users (1:n); each user belongs to exactly one dealership. Every user of a dealership has the same full permissions: view all of that dealership's stock and log actions on any of its vehicles. There are no roles or per-user restrictions within a dealership, and no access to other dealerships' data. |
 | A5 | Authentication is username + password; the API issues a short-lived JWT. No registration, password reset or roles beyond "dealership user". Users are seeded. |
-| A6 | Actions are chosen from a fixed list (for example *Price Reduction Planned*, *Promote*, *Transfer*, *Wholesale*, *Hold*) with an optional free-text note. |
+| A6 | Actions are chosen from a fixed list (*Price Reduction Planned*, *Promotion Planned*, *Transfer Planned*, *Wholesale Planned*, *Hold*) with an optional free-text note. |
 | A7 | Action history is append-only. A vehicle's *current* status is its most recent action. |
 | A8 | "Real-time" means fresh data on page load and manual refresh. No push updates. |
 | A9 | Only vehicles currently in stock are listed. Sold vehicles are out of scope. |
@@ -64,6 +64,7 @@ The API is organised by feature (`auth`, `inventory`, `actions`) with shared inf
 
 ## 5. Security and multi-tenancy
 
+- Authorisation is by dealership only: any authenticated user may view and act on all stock of their own dealership (A4) and none of any other. Finer-grained roles are listed under future evolution.
 - Passwords hashed with bcrypt. JWT carries `user_id` and `dealership_id`.
 - `dealership_id` is taken **only from the token**, never from the request. Repository methods require it as a parameter, so a query cannot be written without a tenant.
 - Requesting another dealership's vehicle returns `404`, which does not reveal that it exists.
