@@ -33,6 +33,9 @@ The brief allows ambiguity as long as it is documented.
 | A11 | Actions can only be logged on **aging** vehicles. Logging one on a non-aging vehicle is rejected with `409 vehicle_not_aging`. Reading the history of any vehicle is allowed. |
 | A12 | Inventory age filtering supports an `aging` flag plus inclusive `min_age_days` / `max_age_days` bounds. Make and model filters use catalog ids. Results are paginated (default 25, max 100) and default to oldest first. |
 | A13 | The API reports the threshold in force (`aging_threshold_days`) in the inventory summary, so the client never hardcodes 90 and the configurable design in 7.1 needs no client change. |
+| A14 | The API does not state a currency. Prices are shown as US dollars; this is one constant in the frontend (`src/shared/format.ts`). |
+| A15 | Inventory filters live in the URL, so a filtered view can be shared, bookmarked and survives refresh. Changing a filter returns to page 1. A model can only be chosen after a make. Age bounds apply when a field loses focus or on Apply, not on every keystroke. |
+| A16 | The page size is fixed at 25. The detail page links back to the same filtered view. |
 
 ## 3. Architecture
 
@@ -64,15 +67,20 @@ The API is organised by feature (`auth`, `inventory`, `actions`) with shared inf
 | Tenancy | Per-dealership schema, shared schema | **Shared schema, `dealership_id` on every row** | Simple and cheap; isolation depends on every query filtering by tenant (enforced in the repository layer and tested). |
 | API contract | Code-first, spec-first | **OpenAPI spec first**, TypeScript types generated | Frontend and backend cannot drift; adds a generation step. |
 | Freshness | Polling, SSE, refresh on load | **Refresh on load** | Meets the requirement with no extra infrastructure. |
+| Frontend contract | Hand-written types, generated types | **Types generated from `openapi.yaml`** (`openapi-typescript`, `openapi-fetch`) | A contract change is a compile error in the UI; `npm run check:api` fails if the generated file is stale. |
+| Frontend state | Redux, context, TanStack Query | **TanStack Query** for server state, the URL for filters | No hand-written caches or loading flags; views are shareable. No global store is needed. |
+| Styling | Component library, Tailwind, plain CSS | **Plain CSS** with variables, light and dark themes | No dependency to maintain for a handful of screens. |
 
 ## 5. Security and multi-tenancy
 
 - Authorisation is by dealership only: any authenticated user may view and act on all stock of their own dealership (A4) and none of any other. Finer-grained roles are listed under future evolution.
-- Passwords hashed with bcrypt. JWT carries `user_id` and `dealership_id`.
+- Passwords hashed with bcrypt. The JWT carries the user id (`sub`) and the dealership id (`did`).
 - `dealership_id` is taken **only from the token**, never from the request. Repository methods require it as a parameter, so a query cannot be written without a tenant.
 - Requesting another dealership's vehicle returns `404`, which does not reveal that it exists.
 - All SQL is parameterised. Input is validated at the handler boundary and list endpoints cap page size.
 - Secrets come from environment variables. Demo credentials exist only in seed data.
+- **Where the browser keeps the token.** The API issues one short-lived access token and no refresh token, so the frontend must keep it somewhere. It uses `sessionStorage`: the session survives a page refresh and ends when the tab closes. The alternative, memory only, is safer against script injection but signs the user out on every refresh. The residual risk is that script running on the page could read the token, so the app renders no untrusted HTML (React escapes by default) and ships no third-party scripts. An `httpOnly` cookie with a refresh flow is the production-grade answer and is listed under future evolution.
+- When the API rejects a token (expired or revoked), the frontend discards it, drops every cached response so the next user never sees the previous user's data, and returns to the login page.
 
 ## 6. Quality approach
 
@@ -85,5 +93,5 @@ The API is organised by feature (`auth`, `inventory`, `actions`) with shared inf
 1. **Configurable aging threshold.** Add `aging_threshold_days` to `dealerships` (default 90) so each dealership sets its own rule, and optionally per-make overrides in a small `aging_rules` table. The query already takes the threshold as a parameter, so only its source changes; the API gains a settings endpoint.
 2. **Live updates.** Server-Sent Events from the API, fed by Postgres `LISTEN/NOTIFY`, would push action and stock changes to open dashboards.
 3. **Scale.** The API is stateless and can run behind a load balancer. Read replicas and a materialised aging view become useful at very large inventories.
-4. **Security hardening.** Refresh tokens with rotation, rate limiting on login, role-based access (manager vs. viewer).
+4. **Security hardening.** Refresh tokens with rotation delivered in an `httpOnly` cookie (replacing `sessionStorage`), rate limiting on login, role-based access (manager vs. viewer).
 5. **Operations.** Structured logs are already used; add metrics, tracing and a deployment pipeline.

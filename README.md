@@ -19,10 +19,13 @@ cp .env.example .env   # once
 make up      # start Postgres
 make seed    # apply migrations and load the demo data (safe to repeat)
 make run     # start the API on :8080
+make web     # start the frontend on http://localhost:5173 (needs the API running)
 make check   # lint, type-check and test backend + frontend; backend coverage must be >= 90% (needs `make up`)
 make mocks   # regenerate test mocks (needs mockery)
 make help    # all targets
 ```
+
+Then open <http://localhost:5173> and sign in with a demo user, for example `northside.manager` / `demo-northside-1` (see `backend/seed/users.csv`).
 
 If you ran an earlier version of this repo, its Postgres data volume is incompatible with Postgres 18: run `docker compose down -v` once, then `make up`.
 

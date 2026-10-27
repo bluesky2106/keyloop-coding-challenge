@@ -1,4 +1,4 @@
-.PHONY: help up down run seed mocks fmt lint test check
+.PHONY: help up down run web seed mocks fmt lint test check
 
 # Minimum statement coverage of the backend, enforced by `make test`.
 COVERAGE_MIN ?= 90
@@ -19,6 +19,9 @@ down: ## Stop Postgres
 run: ## Run the API (applies migrations on start)
 	cd backend && go run ./cmd/api
 
+web: ## Run the frontend dev server (proxies /api to the API on :8080)
+	cd frontend && npm run dev
+
 seed: ## Load the demo CSV data (safe to repeat)
 	cd backend && go run ./cmd/seed
 
@@ -26,9 +29,9 @@ fmt: ## Format backend and frontend
 	cd backend && gofmt -w .
 	cd frontend && npm run format
 
-lint: ## Lint, format-check and type-check both apps and the API spec
+lint: ## Lint, format-check and type-check both apps, the API spec and the generated types
 	cd backend && golangci-lint run ./...
-	cd frontend && npm run lint && npm run format:check && npm run typecheck
+	cd frontend && npm run lint && npm run format:check && npm run typecheck && npm run check:api
 	npx --yes @redocly/cli@2.71.2 lint docs/api/openapi.yaml
 
 mocks: ## Regenerate test mocks (mockery)
