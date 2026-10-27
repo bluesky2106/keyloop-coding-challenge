@@ -7,7 +7,8 @@ Keyloop technical assessment, Scenario B. A multi-dealership dashboard that show
 ## Documentation
 - [System design](docs/system-design.md): scope, assumptions, architecture, decisions
 - [Database design](docs/database-design.md): schema, indexes, migrations, seed data
-- API spec (`docs/api/openapi.yaml`) and validation notes: added as the implementation lands
+- [API spec](docs/api/openapi.yaml) (OpenAPI 3.1)
+- Validation notes: added as the implementation lands
 - [Assessment brief](docs/reference/keyloop_technical_assessment.md)
 
 ## Getting started

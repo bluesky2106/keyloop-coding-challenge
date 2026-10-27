@@ -29,7 +29,10 @@ The brief allows ambiguity as long as it is documented.
 | A7 | Action history is append-only. A vehicle's *current* status is its most recent action. |
 | A8 | "Real-time" means fresh data on page load and manual refresh. No push updates. |
 | A9 | Only vehicles currently in stock are listed. Sold vehicles are out of scope. |
-| A10 | Mock data (dealerships, users, vehicles) is stored as CSV and loaded idempotently. All credentials in it are fake demo values. |
+| A10 | Mock data (dealerships, users, make and model catalog, vehicles) is stored as CSV and loaded idempotently. All credentials in it are fake demo values. |
+| A11 | Actions can only be logged on **aging** vehicles. Logging one on a non-aging vehicle is rejected with `409 vehicle_not_aging`. Reading the history of any vehicle is allowed. |
+| A12 | Inventory age filtering supports an `aging` flag plus inclusive `min_age_days` / `max_age_days` bounds. Make and model filters use catalog ids. Results are paginated (default 25, max 100) and default to oldest first. |
+| A13 | The API reports the threshold in force (`aging_threshold_days`) in the inventory summary, so the client never hardcodes 90 and the configurable design in 7.1 needs no client change. |
 
 ## 3. Architecture
 
