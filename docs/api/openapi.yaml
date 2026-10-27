@@ -119,11 +119,11 @@ paths:
         - name: min_age_days
           in: query
           description: Inclusive lower bound on age in days.
-          schema: { type: integer, minimum: 0 }
+          schema: { type: integer, minimum: 0, maximum: 100000 }
         - name: max_age_days
           in: query
           description: Inclusive upper bound on age in days.
-          schema: { type: integer, minimum: 0 }
+          schema: { type: integer, minimum: 0, maximum: 100000 }
         - name: sort
           in: query
           schema:
@@ -260,7 +260,7 @@ components:
       name: page
       in: query
       description: 1-based page number.
-      schema: { type: integer, minimum: 1, default: 1 }
+      schema: { type: integer, minimum: 1, maximum: 2147483647, default: 1 }
     PageSize:
       name: page_size
       in: query

@@ -32,7 +32,12 @@ Try it (demo credentials from `backend/seed/users.csv`):
 curl -s -X POST localhost:8080/api/v1/auth/login \
   -d '{"username":"northside.manager","password":"demo-northside-1"}'
 curl -s localhost:8080/api/v1/me -H "Authorization: Bearer <access_token>"
+curl -s "localhost:8080/api/v1/vehicles?aging=true&page_size=5" -H "Authorization: Bearer <access_token>"
+curl -s -X POST localhost:8080/api/v1/vehicles/<vehicle_id>/actions -H "Authorization: Bearer <access_token>" \
+  -d '{"action_type":"price_reduction_planned","note":"Drop 5% on Friday"}'
 ```
+
+The full contract, including filters, sorting and pagination, is in [`docs/api/openapi.yaml`](docs/api/openapi.yaml).
 
 ## Layout
 ```

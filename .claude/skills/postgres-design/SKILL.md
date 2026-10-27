@@ -13,5 +13,6 @@ description: PostgreSQL schema, migration, indexing and query rules for this pro
 - **Every query on tenant data filters by `dealership_id`.** Index it first in composite indexes.
 - Add an index only with a named query it serves; document it in `docs/database-design.md`. Check with `EXPLAIN` on realistic data.
 - Action history is append-only; "current status" is the latest row per vehicle (`DISTINCT ON` or a lateral join), not a mutated column.
+- Bind only the arguments a statement references: Postgres rejects extra ones ("expected N arguments, got M"). When SQL is assembled from optional filters, allocate each placeholder where it is used. Never pass user input as a sort column; map an allowed value to a fixed SQL fragment.
 - Use parameterised queries only. Never build SQL with string concatenation of user input.
 - Seed data loads from `backend/seed/*.csv` idempotently (`ON CONFLICT DO NOTHING`).

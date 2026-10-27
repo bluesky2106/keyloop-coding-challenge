@@ -81,3 +81,24 @@ func TestDecodeJSON(t *testing.T) {
 	_, err = decode(`{"name":"` + strings.Repeat("a", 1<<20) + `"}`)
 	require.Error(t, err, "bodies over 1 MiB must be rejected")
 }
+
+func TestIsUUID(t *testing.T) {
+	valid := []string{
+		"00000000-0000-0000-0000-000000000000",
+		"3f2b8c1e-9a4d-4e7b-8c5a-1d2e3f4a5b6c",
+		"3F2B8C1E-9A4D-4E7B-8C5A-1D2E3F4A5B6C",
+	}
+	for _, s := range valid {
+		assert.True(t, IsUUID(s), s)
+	}
+	invalid := []string{
+		"", "not-a-uuid", "3f2b8c1e9a4d4e7b8c5a1d2e3f4a5b6c",
+		"3f2b8c1e-9a4d-4e7b-8c5a-1d2e3f4a5b6",   // too short
+		"3f2b8c1e-9a4d-4e7b-8c5a-1d2e3f4a5b6cc", // too long
+		"3f2b8c1e-9a4d-4e7b-8c5a-1d2e3f4a5b6g",  // not hex
+		"3f2b8c1e_9a4d-4e7b-8c5a-1d2e3f4a5b6c",  // wrong separator
+	}
+	for _, s := range invalid {
+		assert.False(t, IsUUID(s), s)
+	}
+}
