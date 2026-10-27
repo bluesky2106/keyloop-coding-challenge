@@ -1,0 +1,16 @@
+---
+name: api-and-auth
+description: REST API, authentication and multi-tenant security rules. Use when adding endpoints, auth, middleware, or anything touching dealership data access.
+---
+
+# API and auth rules
+
+- `docs/api/openapi.yaml` is the contract. Change it first, then code.
+- REST, JSON, versioned under `/api/v1`. Plural nouns; correct status codes (201 create, 204 no body, 400 validation, 401 unauthenticated, 403 forbidden, 404 not found).
+- Error body is always `{"error": {"code": "...", "message": "..."}}`.
+- Passwords: `bcrypt`, never logged or returned. Login returns a short-lived JWT (HS256, secret from env, `exp` set).
+- JWT claims carry `user_id` and `dealership_id`. Middleware validates the token and puts the claims in the request context.
+- **Tenant isolation:** `dealership_id` always comes from the token, never from the request path/body/query. Every repository method takes it as a parameter. Accessing another dealership's vehicle returns 404.
+- Validate all input at the handler boundary (types, enums, lengths, pagination limits).
+- List endpoints are paginated with a capped page size.
+- Add tests for: missing token, bad token, cross-dealership access, invalid payload.
