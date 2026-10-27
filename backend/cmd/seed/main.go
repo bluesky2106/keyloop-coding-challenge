@@ -13,24 +13,24 @@ import (
 )
 
 func main() {
-	if err := run(); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+
+	if err := run(ctx, os.Getenv); err != nil {
 		slog.Error("seed failed", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
-	databaseURL := os.Getenv("DATABASE_URL")
+func run(ctx context.Context, getenv func(string) string) error {
+	databaseURL := getenv("DATABASE_URL")
 	if databaseURL == "" {
 		return fmt.Errorf("DATABASE_URL is required")
 	}
-	dir := os.Getenv("SEED_DIR")
+	dir := getenv("SEED_DIR")
 	if dir == "" {
 		dir = "seed"
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-	defer cancel()
 
 	if err := platform.Migrate(databaseURL); err != nil {
 		return err

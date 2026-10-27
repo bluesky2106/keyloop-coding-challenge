@@ -1,10 +1,11 @@
-// Package testdb creates an isolated, fully migrated PostgreSQL database per test.
+// Package testdb creates isolated PostgreSQL databases for tests.
 package testdb
 
 import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"net/url"
 	"os"
 	"testing"
@@ -19,48 +20,72 @@ import (
 // may create databases on); start one with `make up`.
 func New(t *testing.T) *pgxpool.Pool {
 	t.Helper()
+	pool, cleanup, err := Setup(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	return pool
+}
+
+// NewEmpty is like New but leaves the database without any schema.
+func NewEmpty(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	pool, cleanup, err := Setup(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(cleanup)
+	return pool
+}
+
+// Setup creates a fresh database, optionally migrated, and returns a pool and a cleanup
+// that drops it. It exists for TestMain, which has no *testing.T.
+func Setup(migrate bool) (*pgxpool.Pool, func(), error) {
 	ctx := context.Background()
 
 	adminURL := os.Getenv("DATABASE_URL")
 	if adminURL == "" {
-		t.Fatal("DATABASE_URL is not set: run `make up` and export the variables from .env")
+		return nil, nil, fmt.Errorf("DATABASE_URL is not set: run `make up` and export the variables from .env")
 	}
 	admin, err := pgxpool.New(ctx, adminURL)
 	if err != nil {
-		t.Fatalf("connect admin: %v", err)
+		return nil, nil, fmt.Errorf("connect admin: %w", err)
 	}
 
 	suffix := make([]byte, 6)
 	if _, err := rand.Read(suffix); err != nil {
-		t.Fatalf("random name: %v", err)
+		admin.Close()
+		return nil, nil, fmt.Errorf("random name: %w", err)
 	}
 	name := "test_" + hex.EncodeToString(suffix)
 	if _, err := admin.Exec(ctx, "CREATE DATABASE "+name); err != nil {
 		admin.Close()
-		t.Fatalf("create database: %v", err)
+		return nil, nil, fmt.Errorf("create database: %w", err)
+	}
+	drop := func() {
+		_, _ = admin.Exec(ctx, "DROP DATABASE "+name+" WITH (FORCE)")
+		admin.Close()
 	}
 
 	u, err := url.Parse(adminURL)
 	if err != nil {
-		t.Fatalf("parse DATABASE_URL: %v", err)
+		drop()
+		return nil, nil, fmt.Errorf("parse DATABASE_URL: %w", err)
 	}
 	u.Path = "/" + name
 	testURL := u.String()
 
-	if err := platform.Migrate(testURL); err != nil {
-		t.Fatalf("migrate: %v", err)
+	if migrate {
+		if err := platform.Migrate(testURL); err != nil {
+			drop()
+			return nil, nil, fmt.Errorf("migrate: %w", err)
+		}
 	}
 	pool, err := platform.Connect(ctx, testURL)
 	if err != nil {
-		t.Fatalf("connect test database: %v", err)
+		drop()
+		return nil, nil, fmt.Errorf("connect test database: %w", err)
 	}
-
-	t.Cleanup(func() {
-		pool.Close()
-		if _, err := admin.Exec(ctx, "DROP DATABASE "+name+" WITH (FORCE)"); err != nil {
-			t.Errorf("drop database: %v", err)
-		}
-		admin.Close()
-	})
-	return pool
+	return pool, func() { pool.Close(); drop() }, nil
 }

@@ -19,9 +19,13 @@ description: Conventions for the Go API in backend/. Use when writing or reviewi
 - Config comes from environment variables, validated at startup; fail fast.
 
 ## Testing
-- Table-driven tests with `t.Run`. Pure logic (aging rule, filter building) gets unit tests.
-- Repository and handler tests run against a real Postgres (testcontainers or the compose DB), never a mocked `pgx`.
+- Backend statement coverage must be at least 90% (`make test` enforces it via `backend/scripts/check-coverage.sh`). Do not lower `COVERAGE_MIN`; add tests.
+- Layer as handler -> service -> store. Each layer depends on a small interface defined where it is used, so a layer is unit-tested with a mock of the layer below (error paths such as a database failure are only reachable this way).
+- Mocks are generated with mockery (`make mocks`, config in `backend/.mockery.yml`) into `mocks_test.go` beside the interface. Add new interfaces to the config; never hand-edit generated files. A mock cannot match a variadic call whose argument count varies (pgx `Exec`); use a small fake for that.
+- SQL is tested against a real Postgres via `testdb.New(t)` (throwaway database, real migrations), never a mocked `pgx`. Read-only tests in one package may share a database built in `TestMain`.
+- Use `testify` (`require` to stop, `assert` to continue). Table-driven tests with `t.Run`.
 - Aging boundary must be tested: exactly 90 days is not aging, 91 is.
+- Tests must assert the reason for a failure (error code, status, message), not merely that something failed.
 
 ## Verify before done
 `make lint test` for the backend must pass (`golangci-lint run`, `go test ./... -race`).

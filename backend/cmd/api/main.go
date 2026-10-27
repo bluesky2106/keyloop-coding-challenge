@@ -20,20 +20,23 @@ import (
 func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
-	if err := run(logger); err != nil {
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	if err := run(ctx, os.Getenv, logger); err != nil {
 		logger.Error("server failed", "err", err)
 		os.Exit(1)
 	}
 }
 
-func run(logger *slog.Logger) error {
-	cfg, err := config.Load(os.Getenv)
+// run starts the server and blocks until ctx is cancelled (graceful shutdown) or the
+// server fails.
+func run(ctx context.Context, getenv func(string) string, logger *slog.Logger) error {
+	cfg, err := config.Load(getenv)
 	if err != nil {
 		return err
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	if err := platform.Migrate(cfg.DatabaseURL); err != nil {
 		return err
@@ -45,10 +48,7 @@ func run(logger *slog.Logger) error {
 	defer pool.Close()
 
 	tokens := auth.NewTokens(cfg.JWTSecret, cfg.JWTTTL)
-	authSvc, err := auth.NewService(pool, tokens)
-	if err != nil {
-		return err
-	}
+	authSvc := auth.NewService(auth.NewPGStore(pool), tokens)
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,

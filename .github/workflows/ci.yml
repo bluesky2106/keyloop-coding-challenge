@@ -12,7 +12,7 @@ jobs:
       DATABASE_URL: postgres://keyloop:keyloop@localhost:5432/keyloop?sslmode=disable
     services:
       postgres:
-        image: postgres:17-alpine
+        image: postgres:18.4
         env:
           POSTGRES_USER: keyloop
           POSTGRES_PASSWORD: keyloop

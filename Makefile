@@ -1,4 +1,7 @@
-.PHONY: help up down run seed fmt lint test check
+.PHONY: help up down run seed mocks fmt lint test check
+
+# Minimum statement coverage of the backend, enforced by `make test`.
+COVERAGE_MIN ?= 90
 
 # Load .env (if present) so run, seed and test see DATABASE_URL and JWT_SECRET.
 -include .env
@@ -28,8 +31,12 @@ lint: ## Lint, format-check and type-check both apps and the API spec
 	cd frontend && npm run lint && npm run format:check && npm run typecheck
 	npx --yes @redocly/cli@2.71.2 lint docs/api/openapi.yaml
 
-test: ## Run all tests (needs Postgres: make up)
-	cd backend && go test ./... -race
+mocks: ## Regenerate test mocks (mockery)
+	cd backend && mockery
+
+test: ## Run all tests, enforcing backend coverage (needs Postgres: make up)
+	cd backend && go test ./... -race -coverpkg=./... -coverprofile=coverage.out
+	cd backend && ./scripts/check-coverage.sh coverage.out $(COVERAGE_MIN)
 	cd frontend && npm test
 
 check: lint test ## Everything CI runs

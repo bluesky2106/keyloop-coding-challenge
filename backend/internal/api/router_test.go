@@ -1,9 +1,12 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -20,18 +23,33 @@ type app struct {
 	handler http.Handler
 }
 
-func newApp(t *testing.T) *app {
-	t.Helper()
-	pool := testdb.New(t)
-	if err := seed.Load(t.Context(), pool, "../../seed"); err != nil {
-		t.Fatalf("seed: %v", err)
+// shared is built once in TestMain: every test only reads, so they can share one seeded
+// database instead of paying for a fresh migration and seed each time.
+var shared http.Handler
+
+func TestMain(m *testing.M) {
+	os.Exit(run(m))
+}
+
+func run(m *testing.M) int {
+	pool, cleanup, err := testdb.Setup(true)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	defer cleanup()
+	if err := seed.Load(context.Background(), pool, "../../seed"); err != nil {
+		fmt.Fprintln(os.Stderr, "seed:", err)
+		return 1
 	}
 	tokens := auth.NewTokens(secret, time.Hour)
-	svc, err := auth.NewService(pool, tokens)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return &app{t: t, handler: NewRouter(svc, tokens)}
+	shared = NewRouter(auth.NewService(auth.NewPGStore(pool), tokens), tokens)
+	return m.Run()
+}
+
+func newApp(t *testing.T) *app {
+	t.Helper()
+	return &app{t: t, handler: shared}
 }
 
 func (a *app) do(method, path, body, bearer string) *httptest.ResponseRecorder {

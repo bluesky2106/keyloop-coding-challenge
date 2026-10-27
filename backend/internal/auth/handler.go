@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -14,11 +15,17 @@ const (
 	maxPasswordLen = 200
 )
 
+// Authenticator is what the handlers need from the auth service.
+type Authenticator interface {
+	Login(ctx context.Context, username, password string) (LoginResult, error)
+	Me(ctx context.Context, c Claims) (Me, error)
+}
+
 // Handler serves the auth endpoints.
-type Handler struct{ svc *Service }
+type Handler struct{ svc Authenticator }
 
 // NewHandler returns a Handler for svc.
-func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
+func NewHandler(svc Authenticator) *Handler { return &Handler{svc: svc} }
 
 type loginRequest struct {
 	Username string `json:"username"`

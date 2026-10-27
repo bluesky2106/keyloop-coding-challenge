@@ -1,6 +1,6 @@
 # Database Design
 
-PostgreSQL 17. The schema is created by `backend/migrations/000001_init.up.sql` (golang-migrate format, with a matching `.down.sql`).
+PostgreSQL 18. The schema is created by `backend/migrations/000001_init.up.sql` (golang-migrate format, with a matching `.down.sql`).
 
 ## ERD
 
@@ -128,4 +128,10 @@ The loader inserts with `ON CONFLICT DO NOTHING` on the natural keys (dealership
 
 ## Verification
 
-Run against a real PostgreSQL 17 container: the migration applies and reverses cleanly; the CSVs load and reload idempotently (150 vehicles both times); age 90 evaluates as not aging and 91 as aging; and the index is used for the aging predicate. Inserts with an invalid action type, a cross-dealership action, a malformed VIN, a case-variant duplicate username or make, a duplicate model, a vehicle without a model, and a repeated VIN within one dealership are each rejected by the database, while the same VIN in a different dealership is accepted.
+Automated tests run against a real PostgreSQL 18.4 container (`make test`, which needs `make up`):
+
+- `backend/migrations/schema_test.go` asserts that each integrity rule is enforced by the database with the expected error code: duplicate dealership, case-variant username or make, repeated model, missing or unknown model, repeated or malformed VIN, out-of-range year, negative price, unknown action type, over-long note, and an action on another dealership's vehicle. It also asserts that the same VIN is accepted in a different dealership and that every action type is accepted.
+- `backend/internal/seed` loads the real CSVs, checks the counts (3 dealerships, 6 users, 7 makes, 21 models, 150 vehicles), reloads them to prove idempotency, and checks that age 90 is not aging while age 91 is.
+- `backend/internal/platform` checks that migrations apply to an empty database, are a no-op on a second run, and report a migration that cannot apply.
+
+The down migration and the use of `vehicles_dealership_stocked_at_idx` for the aging predicate were checked by hand with the `migrate` CLI and `EXPLAIN` on PostgreSQL 17 and are not covered by an automated test.

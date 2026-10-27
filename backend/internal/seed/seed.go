@@ -13,9 +13,16 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// DB starts transactions. *pgxpool.Pool satisfies it.
+type DB interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+}
+
+// hashCost is the bcrypt cost for demo passwords. Tests lower it to stay fast.
+var hashCost = bcrypt.DefaultCost
 
 type modelRow struct{ make, model string }
 
@@ -25,60 +32,37 @@ type vehicleRow struct {
 	dealership, vin, make, model, year, price, ageDays string
 }
 
+type dataset struct {
+	dealerships []string
+	models      []modelRow
+	users       []userRow
+	vehicles    []vehicleRow
+}
+
 // Load reads dealerships.csv, models.csv, users.csv and vehicles.csv from dir and
-// inserts them in a single transaction.
-func Load(ctx context.Context, pool *pgxpool.Pool, dir string) error {
-	dealerships, err := readCSV(dir, "dealerships.csv", []string{"name"})
-	if err != nil {
-		return err
-	}
-	modelRecs, err := readCSV(dir, "models.csv", []string{"make", "model"})
-	if err != nil {
-		return err
-	}
-	userRecs, err := readCSV(dir, "users.csv", []string{"dealership", "username", "password"})
-	if err != nil {
-		return err
-	}
-	vehicleRecs, err := readCSV(dir, "vehicles.csv",
-		[]string{"dealership", "vin", "make", "model", "year", "price", "age_days"})
+// inserts them in a single transaction. Nothing is written if any file is invalid.
+func Load(ctx context.Context, db DB, dir string) error {
+	ds, err := read(dir)
 	if err != nil {
 		return err
 	}
 
-	models := make([]modelRow, len(modelRecs))
-	for i, r := range modelRecs {
-		models[i] = modelRow{r[0], r[1]}
-	}
-	users := make([]userRow, len(userRecs))
-	for i, r := range userRecs {
-		users[i] = userRow{r[0], r[1], r[2]}
-	}
-	vehicles := make([]vehicleRow, len(vehicleRecs))
-	for i, r := range vehicleRecs {
-		vehicles[i] = vehicleRow{r[0], r[1], r[2], r[3], r[4], r[5], r[6]}
-	}
-
-	if err := checkReferences(dealerships, models, users, vehicles); err != nil {
-		return err
-	}
-
-	hashes := make([][]byte, len(users))
-	for i, u := range users {
-		h, err := bcrypt.GenerateFromPassword([]byte(u.password), bcrypt.DefaultCost)
+	hashes := make([]string, len(ds.users))
+	for i, u := range ds.users {
+		h, err := bcrypt.GenerateFromPassword([]byte(u.password), hashCost)
 		if err != nil {
 			return fmt.Errorf("hash password for %q: %w", u.username, err)
 		}
-		hashes[i] = h
+		hashes[i] = string(h)
 	}
 
-	tx, err := pool.Begin(ctx)
+	tx, err := db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("begin: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if err := insert(ctx, tx, dealerships, models, users, hashes, vehicles); err != nil {
+	if err := insert(ctx, tx, ds, hashes); err != nil {
 		return err
 	}
 	if err := tx.Commit(ctx); err != nil {
@@ -87,17 +71,14 @@ func Load(ctx context.Context, pool *pgxpool.Pool, dir string) error {
 	return nil
 }
 
-func insert(
-	ctx context.Context, tx pgx.Tx,
-	dealerships [][]string, models []modelRow, users []userRow, hashes [][]byte, vehicles []vehicleRow,
-) error {
-	for _, d := range dealerships {
+func insert(ctx context.Context, tx pgx.Tx, ds dataset, hashes []string) error {
+	for _, name := range ds.dealerships {
 		if _, err := tx.Exec(ctx,
-			`INSERT INTO dealerships (name) VALUES ($1) ON CONFLICT (name) DO NOTHING`, d[0]); err != nil {
-			return fmt.Errorf("insert dealership %q: %w", d[0], err)
+			`INSERT INTO dealerships (name) VALUES ($1) ON CONFLICT (name) DO NOTHING`, name); err != nil {
+			return fmt.Errorf("insert dealership %q: %w", name, err)
 		}
 	}
-	for _, m := range models {
+	for _, m := range ds.models {
 		if _, err := tx.Exec(ctx,
 			`INSERT INTO makes (name) VALUES ($1) ON CONFLICT (lower(name)) DO NOTHING`, m.make); err != nil {
 			return fmt.Errorf("insert make %q: %w", m.make, err)
@@ -109,15 +90,15 @@ func insert(
 			return fmt.Errorf("insert model %q %q: %w", m.make, m.model, err)
 		}
 	}
-	for i, u := range users {
+	for i, u := range ds.users {
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO users (dealership_id, username, password_hash)
 			SELECT id, $2, $3 FROM dealerships WHERE name = $1
-			ON CONFLICT (lower(username)) DO NOTHING`, u.dealership, u.username, string(hashes[i])); err != nil {
+			ON CONFLICT (lower(username)) DO NOTHING`, u.dealership, u.username, hashes[i]); err != nil {
 			return fmt.Errorf("insert user %q: %w", u.username, err)
 		}
 	}
-	for _, v := range vehicles {
+	for _, v := range ds.vehicles {
 		// stocked_at is derived from age_days so the demo data never goes stale.
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO vehicles (dealership_id, vin, model_id, year, price, stocked_at)
@@ -134,32 +115,60 @@ func insert(
 	return nil
 }
 
-// checkReferences fails early, with a clear message, if a row points at something that
-// is not defined in the other files. Otherwise the SQL joins would skip it silently.
-func checkReferences(dealerships [][]string, models []modelRow, users []userRow, vehicles []vehicleRow) error {
+// read parses the four CSV files and checks that every row points at something defined
+// in the other files. Otherwise the SQL joins would skip such rows silently.
+func read(dir string) (dataset, error) {
+	var ds dataset
+
+	rows, err := readCSV(dir, "dealerships.csv", []string{"name"})
+	if err != nil {
+		return ds, err
+	}
 	dealerSet := map[string]bool{}
-	for _, d := range dealerships {
-		dealerSet[d[0]] = true
+	for _, r := range rows {
+		ds.dealerships = append(ds.dealerships, r[0])
+		dealerSet[r[0]] = true
+	}
+
+	rows, err = readCSV(dir, "models.csv", []string{"make", "model"})
+	if err != nil {
+		return ds, err
 	}
 	modelSet := map[string]bool{}
-	for _, m := range models {
-		modelSet[strings.ToLower(m.make+"\x00"+m.model)] = true
+	for _, r := range rows {
+		ds.models = append(ds.models, modelRow{r[0], r[1]})
+		modelSet[modelKey(r[0], r[1])] = true
 	}
-	for _, u := range users {
-		if !dealerSet[u.dealership] {
-			return fmt.Errorf("user %q references unknown dealership %q", u.username, u.dealership)
-		}
+
+	rows, err = readCSV(dir, "users.csv", []string{"dealership", "username", "password"})
+	if err != nil {
+		return ds, err
 	}
-	for _, v := range vehicles {
-		if !dealerSet[v.dealership] {
-			return fmt.Errorf("vehicle %q references unknown dealership %q", v.vin, v.dealership)
+	for _, r := range rows {
+		if !dealerSet[r[0]] {
+			return ds, fmt.Errorf("user %q references unknown dealership %q", r[1], r[0])
 		}
-		if !modelSet[strings.ToLower(v.make+"\x00"+v.model)] {
-			return fmt.Errorf("vehicle %q references unknown model %q %q", v.vin, v.make, v.model)
-		}
+		ds.users = append(ds.users, userRow{r[0], r[1], r[2]})
 	}
-	return nil
+
+	rows, err = readCSV(dir, "vehicles.csv",
+		[]string{"dealership", "vin", "make", "model", "year", "price", "age_days"})
+	if err != nil {
+		return ds, err
+	}
+	for _, r := range rows {
+		if !dealerSet[r[0]] {
+			return ds, fmt.Errorf("vehicle %q references unknown dealership %q", r[1], r[0])
+		}
+		if !modelSet[modelKey(r[2], r[3])] {
+			return ds, fmt.Errorf("vehicle %q references unknown model %q %q", r[1], r[2], r[3])
+		}
+		ds.vehicles = append(ds.vehicles, vehicleRow{r[0], r[1], r[2], r[3], r[4], r[5], r[6]})
+	}
+	return ds, nil
 }
+
+func modelKey(makeName, model string) string { return strings.ToLower(makeName + "\x00" + model) }
 
 // readCSV returns the data rows of dir/name after checking the header matches want.
 func readCSV(dir, name string, want []string) ([][]string, error) {

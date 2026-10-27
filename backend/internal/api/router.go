@@ -12,7 +12,7 @@ import (
 
 // NewRouter returns the full HTTP handler: the health check plus /api/v1.
 // Routes that need a signed-in user go inside the Authenticate group.
-func NewRouter(authSvc *auth.Service, tokens *auth.Tokens) http.Handler {
+func NewRouter(authSvc auth.Authenticator, tokens *auth.Tokens) http.Handler {
 	r := platform.NewRouter()
 	authH := auth.NewHandler(authSvc)
 

@@ -12,14 +12,15 @@ Keyloop technical assessment, Scenario B. A multi-dealership dashboard that show
 - [Assessment brief](docs/reference/keyloop_technical_assessment.md)
 
 ## Getting started
-Requires Go 1.26+, Node 24+, Docker and [golangci-lint](https://golangci-lint.run) v2.
+Requires Go 1.26+, Node 24+, Docker, [golangci-lint](https://golangci-lint.run) v2 and, to regenerate mocks, [mockery](https://vektra.github.io/mockery/) v3.
 
 ```sh
 cp .env.example .env   # once
 make up      # start Postgres
 make seed    # apply migrations and load the demo data (safe to repeat)
 make run     # start the API on :8080
-make check   # lint, type-check and test backend + frontend (needs `make up`)
+make check   # lint, type-check and test backend + frontend; backend coverage must be >= 90% (needs `make up`)
+make mocks   # regenerate test mocks (needs mockery)
 make help    # all targets
 ```
 
