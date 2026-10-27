@@ -16,12 +16,27 @@ CREATE TABLE users (
 CREATE UNIQUE INDEX users_username_key ON users (lower(username));
 CREATE INDEX users_dealership_id_idx ON users (dealership_id);
 
+-- Shared reference data (not tenant data): no dealership_id.
+CREATE TABLE makes (
+    id   uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    name text NOT NULL
+);
+
+CREATE UNIQUE INDEX makes_name_key ON makes (lower(name));
+
+CREATE TABLE models (
+    id      uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    make_id uuid NOT NULL REFERENCES makes (id),
+    name    text NOT NULL
+);
+
+CREATE UNIQUE INDEX models_make_name_key ON models (make_id, lower(name));
+
 CREATE TABLE vehicles (
     id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     dealership_id uuid NOT NULL REFERENCES dealerships (id),
     vin           text NOT NULL CHECK (vin ~ '^[A-HJ-NPR-Z0-9]{17}$'),
-    make          text NOT NULL,
-    model         text NOT NULL,
+    model_id      uuid NOT NULL REFERENCES models (id),
     year          smallint NOT NULL CHECK (year BETWEEN 1980 AND 2100),
     price         numeric(10, 2) NOT NULL CHECK (price >= 0),
     stocked_at    date NOT NULL,
@@ -33,8 +48,8 @@ CREATE TABLE vehicles (
 
 -- Serves the aging filter and age sort: WHERE dealership_id = $1 ORDER BY stocked_at.
 CREATE INDEX vehicles_dealership_stocked_at_idx ON vehicles (dealership_id, stocked_at);
--- Serves the make / model filters.
-CREATE INDEX vehicles_dealership_make_model_idx ON vehicles (dealership_id, make, model);
+-- Serves the model filter; the make filter reaches it through models.make_id.
+CREATE INDEX vehicles_dealership_model_idx ON vehicles (dealership_id, model_id);
 
 CREATE TABLE vehicle_actions (
     id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
