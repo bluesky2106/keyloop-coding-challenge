@@ -25,7 +25,7 @@ The brief allows ambiguity as long as it is documented.
 | A3 | The 90-day threshold is a single constant in this version (see 7.1 for the configurable design). |
 | A4 | Each user belongs to exactly one dealership and sees only that dealership's vehicles. |
 | A5 | Authentication is username + password; the API issues a short-lived JWT. No registration, password reset or roles beyond "dealership user". Users are seeded. |
-| A6 | Actions are chosen from a fixed list (for example *Price Reduction Planned*, *Promote*, *Transfer*, *Wholesale*, *Hold*) with an optional free-text note. |
+| A6 | Actions are chosen from a fixed list (*Price Reduction Planned*, *Promotion Planned*, *Transfer Planned*, *Wholesale Planned*, *Hold*) with an optional free-text note. |
 | A7 | Action history is append-only. A vehicle's *current* status is its most recent action. |
 | A8 | "Real-time" means fresh data on page load and manual refresh. No push updates. |
 | A9 | Only vehicles currently in stock are listed. Sold vehicles are out of scope. |
