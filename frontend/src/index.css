@@ -109,8 +109,10 @@ a {
 
 .topbar__user {
   display: flex;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
   align-items: center;
+  justify-content: flex-end;
 }
 
 .content {
@@ -126,8 +128,14 @@ a {
   padding: 1rem;
 }
 
+/* The card's own padding is the top spacing. */
+.card > :first-child {
+  margin-top: 0;
+}
+
 /* Controls */
 button {
+  white-space: nowrap;
   font: inherit;
   padding: 0.5rem 0.9rem;
   border: 1px solid var(--accent);
@@ -340,6 +348,7 @@ th.num {
 
 .actions {
   max-width: 40rem;
+  margin-top: 1rem;
 }
 
 .history {

@@ -41,17 +41,21 @@ The brief allows ambiguity as long as it is documented.
 
 ```mermaid
 flowchart LR
-    Browser["React + TypeScript SPA"] -->|"HTTPS JSON, Bearer JWT"| API["Go API (chi)"]
-    API -->|"pgx / SQL"| DB[("PostgreSQL")]
-    CSV["seed CSV files"] -->|"idempotent load"| DB
+    Browser -->|"HTTP, the only published port"| Web["web: nginx<br/>static React app"]
+    Web -->|"/api/*  (Bearer JWT)"| API["api: Go (chi)"]
+    API -->|"pgx / SQL"| DB[("postgres")]
+    Seed["seed: runs once,<br/>loads the demo CSVs"] -->|"idempotent load"| DB
 ```
+
+Everything runs in containers (`make up`). The browser only ever talks to the web container, which serves the single-page app and forwards `/api/*` to the API, so the app has one origin and needs no CORS configuration. The API and the database are not reachable from outside the Docker network except the database on `127.0.0.1` for local development. Each container can be started alone (`make db-up`, `make api-up`, `make web-up`); the web container resolves the API when a request arrives, so it starts and serves the app even before the API exists. During development the same app can run on the host instead, with the database in Docker.
 
 | Component | Responsibility |
 |---|---|
-| **SPA** | Login, inventory table with URL-driven filters, aging highlight, action dialog and history. |
+| **SPA** | Login, inventory table with URL-driven filters, aging highlight, action form and history. |
+| **Web (nginx)** | Serves the built SPA, falls back to `index.html` for client-side routes, forwards `/api/*` to the API, and sets a strict Content-Security-Policy (no third-party scripts, no framing). Hashed assets are cached for a year, `index.html` is always revalidated. |
 | **API** | Authentication, request validation, tenant scoping, inventory queries, action recording. Stateless, so it scales horizontally. |
 | **PostgreSQL** | Source of truth. Enforces integrity with constraints and foreign keys. |
-| **Seed loader** | Loads dealerships, users and vehicles from CSV on demand. |
+| **Seed loader** | Loads dealerships, users, the make and model catalog and vehicles from CSV. Runs once as a container, or on demand from the host (`make seed`). Safe to repeat. |
 
 The API is organised by feature (`auth`, `inventory`, `actions`) with shared infrastructure in `platform`. This keeps related code together and avoids a layered folder structure that spreads one feature over many directories.
 

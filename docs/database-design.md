@@ -128,7 +128,7 @@ The loader inserts with `ON CONFLICT DO NOTHING` on the natural keys (dealership
 
 ## Verification
 
-Automated tests run against a real PostgreSQL 18.4 container (`make test`, which needs `make up`):
+Automated tests run against a real PostgreSQL 18.4 container (`make test`, which needs `make db-up`):
 
 - `backend/migrations/schema_test.go` asserts that each integrity rule is enforced by the database with the expected error code: duplicate dealership, case-variant username or make, repeated model, missing or unknown model, repeated or malformed VIN, out-of-range year, negative price, unknown action type, over-long note, and an action on another dealership's vehicle. It also asserts that the same VIN is accepted in a different dealership and that every action type is accepted.
 - `backend/internal/seed` loads the real CSVs, checks the counts (3 dealerships, 6 users, 7 makes, 21 models, 150 vehicles), reloads them to prove idempotency, and checks that age 90 is not aging while age 91 is.
