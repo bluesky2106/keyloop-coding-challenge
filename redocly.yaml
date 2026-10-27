@@ -1,0 +1,5 @@
+extends:
+  - recommended
+rules:
+  # Private assessment project: no license to declare.
+  info-license: off

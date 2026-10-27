@@ -1,0 +1,457 @@
+openapi: 3.1.0
+info:
+  title: Intelligent Inventory Dashboard API
+  version: 1.0.0
+  description: |
+    REST API for the dealership inventory dashboard.
+
+    **Tenancy.** Every request after login is scoped to the caller's dealership, which is
+    taken from the JWT and never from the request. Resources that belong to another
+    dealership are reported as `404 Not Found`. All users of a dealership have the same
+    permissions (see assumption A4 in `docs/system-design.md`).
+
+    **Aging.** A vehicle is aging when its age is **greater than** the aging threshold
+    (`aging_threshold_days` in `GET /vehicles/summary`; 90 in this version). Clients read the
+    threshold from the API instead of hardcoding it. Age is derived from `stocked_at` at
+    request time and is never stored.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: Auth
+    description: Login and the current user.
+  - name: Catalog
+    description: Shared make and model reference data.
+  - name: Inventory
+    description: The dealership's vehicles and aging totals.
+  - name: Actions
+    description: The action history logged against aging vehicles.
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: Exchange username and password for a JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Unknown user or wrong password. The response is identical for both cases.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /me:
+    get:
+      tags: [Auth]
+      operationId: getMe
+      summary: The authenticated user and their dealership
+      responses:
+        '200':
+          description: Current user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Me'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /makes:
+    get:
+      tags: [Catalog]
+      operationId: listMakes
+      summary: Makes with their models, for the filter dropdowns
+      description: Shared reference data, identical for every dealership, sorted by name.
+      responses:
+        '200':
+          description: The catalog.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Make'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vehicles:
+    get:
+      tags: [Inventory]
+      operationId: listVehicles
+      summary: List the dealership's vehicles
+      description: |
+        Filters combine with AND. `make_id` and `model_id` may be combined; a model that does
+        not belong to the make simply matches nothing. Filters that cannot match any vehicle
+        (for example `aging=true` with `max_age_days=50`) return an empty page.
+        `min_age_days` greater than `max_age_days` is rejected with `400 validation_error`.
+      parameters:
+        - name: make_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: model_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: aging
+          in: query
+          description: |
+            `true` returns only aging vehicles, `false` only non-aging ones. Omit for both.
+          schema: { type: boolean }
+        - name: min_age_days
+          in: query
+          description: Inclusive lower bound on age in days.
+          schema: { type: integer, minimum: 0 }
+        - name: max_age_days
+          in: query
+          description: Inclusive upper bound on age in days.
+          schema: { type: integer, minimum: 0 }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [age_desc, age_asc, price_desc, price_asc]
+            default: age_desc
+          description: |
+            Ties are always broken by vehicle `id` ascending, so pages never overlap or skip
+            rows even when many vehicles share an age or a price.
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: A page of vehicles.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VehiclePage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vehicles/summary:
+    get:
+      tags: [Inventory]
+      operationId: getInventorySummary
+      summary: Stock and aging totals for the dealership
+      description: Unfiltered totals, used for the headline aging indicator.
+      responses:
+        '200':
+          description: Totals.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventorySummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /vehicles/{vehicleId}:
+    get:
+      tags: [Inventory]
+      operationId: getVehicle
+      summary: One vehicle
+      parameters:
+        - $ref: '#/components/parameters/VehicleId'
+      responses:
+        '200':
+          description: The vehicle.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /vehicles/{vehicleId}/actions:
+    parameters:
+      - $ref: '#/components/parameters/VehicleId'
+    get:
+      tags: [Actions]
+      operationId: listVehicleActions
+      summary: Action history of a vehicle, newest first
+      responses:
+        '200':
+          description: The history. The first item is the vehicle's current action.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/VehicleAction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Actions]
+      operationId: createVehicleAction
+      summary: Log an action for an aging vehicle
+      description: |
+        Appends to the vehicle's history; existing actions are never changed or deleted.
+        Only aging vehicles accept actions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateActionRequest'
+      responses:
+        '201':
+          description: The action was recorded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VehicleAction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: The vehicle is not aging, so it does not accept actions (`vehicle_not_aging`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    VehicleId:
+      name: vehicleId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    Page:
+      name: page
+      in: query
+      description: 1-based page number.
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: page_size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+
+  responses:
+    BadRequest:
+      description: Malformed or invalid input, including a path id that is not a UUID (`validation_error`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Missing, malformed or expired token (`unauthorized`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: |
+        The resource does not exist or belongs to another dealership (`not_found`).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              examples: [validation_error]
+            message:
+              type: string
+            fields:
+              type: object
+              description: Per-field messages for `validation_error`.
+              additionalProperties: { type: string }
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 1, maxLength: 100 }
+        password: { type: string, minLength: 1, maxLength: 200 }
+
+    LoginResponse:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, const: Bearer }
+        expires_in:
+          type: integer
+          description: Token lifetime in seconds.
+
+    Me:
+      type: object
+      required: [user, dealership]
+      properties:
+        user:
+          type: object
+          required: [id, username]
+          properties:
+            id: { type: string, format: uuid }
+            username: { type: string }
+        dealership:
+          type: object
+          required: [id, name]
+          properties:
+            id: { type: string, format: uuid }
+            name: { type: string }
+
+    NamedRef:
+      type: object
+      description: A catalog entry (make or model) referenced by id and name.
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+
+    Make:
+      type: object
+      required: [id, name, models]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        models:
+          type: array
+          items:
+            $ref: '#/components/schemas/NamedRef'
+
+    ActionType:
+      type: string
+      description: Must match the `CHECK` constraint on `vehicle_actions.action_type`.
+      enum:
+        - price_reduction_planned
+        - promotion_planned
+        - transfer_planned
+        - wholesale_planned
+        - hold
+
+    VehicleAction:
+      type: object
+      required: [id, vehicle_id, action_type, note, created_by, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        vehicle_id: { type: string, format: uuid }
+        action_type:
+          $ref: '#/components/schemas/ActionType'
+        note:
+          type: [string, 'null']
+          maxLength: 500
+        created_by:
+          type: string
+          description: Username of the user who logged the action.
+        created_at: { type: string, format: date-time }
+
+    CreateActionRequest:
+      type: object
+      required: [action_type]
+      properties:
+        action_type:
+          $ref: '#/components/schemas/ActionType'
+        note:
+          type: [string, 'null']
+          maxLength: 500
+
+    Vehicle:
+      type: object
+      required:
+        - id
+        - vin
+        - make
+        - model
+        - year
+        - price
+        - stocked_at
+        - age_days
+        - is_aging
+        - current_action
+      properties:
+        id: { type: string, format: uuid }
+        vin: { type: string, pattern: '^[A-HJ-NPR-Z0-9]{17}$' }
+        make: { $ref: '#/components/schemas/NamedRef' }
+        model: { $ref: '#/components/schemas/NamedRef' }
+        year: { type: integer, minimum: 1980, maximum: 2100 }
+        price:
+          type: string
+          pattern: '^\d{1,8}\.\d{2}$'
+          description: Non-negative decimal amount with two places (numeric(10,2)), as a string to avoid floating-point rounding.
+        stocked_at: { type: string, format: date }
+        age_days:
+          type: integer
+          minimum: 0
+          description: Whole days since `stocked_at`.
+        is_aging:
+          type: boolean
+          description: True when `age_days` is greater than the aging threshold.
+        current_action:
+          description: The most recent action, or null if none has been logged.
+          oneOf:
+            - $ref: '#/components/schemas/VehicleAction'
+            - type: 'null'
+
+    VehiclePage:
+      type: object
+      required: [items, page, page_size, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Vehicle'
+        page: { type: integer }
+        page_size: { type: integer }
+        total:
+          type: integer
+          description: Number of vehicles matching the filters across all pages.
+
+    InventorySummary:
+      type: object
+      required: [total, aging, aging_threshold_days]
+      properties:
+        total: { type: integer, description: Vehicles in stock. }
+        aging: { type: integer, description: Vehicles older than the threshold. }
+        aging_threshold_days:
+          type: integer
+          description: The threshold in force. Clients must use this value rather than a constant.
