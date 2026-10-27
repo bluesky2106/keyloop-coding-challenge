@@ -77,7 +77,7 @@ The API is organised by feature (`auth`, `inventory`, `actions`) with shared inf
 ## 6. Quality approach
 
 - Lint and format: `golangci-lint` v2 for Go; ESLint (type-checked strict rules), Prettier and `tsc` for the frontend. Run everything with `make check`; CI runs the same command.
-- Tests: unit tests for pure logic (aging boundary at 90/91 days), integration tests against a real Postgres, component tests for the frontend.
+- Tests: unit tests with generated mocks (mockery) for handlers and services, integration tests against a real PostgreSQL 18.4 (a throwaway database per test), component tests for the frontend. Backend statement coverage must stay at or above 90%; `make test` fails below that. Only the `testdb` test helper is excluded; entry-point `main()` functions are counted (their `run()` logic is tested).
 - Evidence of verification is recorded in `docs/validation.md`.
 
 ## 7. Future evolution

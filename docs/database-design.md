@@ -1,6 +1,6 @@
 # Database Design
 
-PostgreSQL 17. The schema is created by `backend/migrations/000001_init.up.sql` (golang-migrate format, with a matching `.down.sql`).
+PostgreSQL 18. The schema is created by `backend/migrations/000001_init.up.sql` (golang-migrate format, with a matching `.down.sql`).
 
 ## ERD
 
@@ -107,7 +107,7 @@ ORDER BY v.stocked_at;
 
 ## Migrations
 
-Numbered SQL files in `backend/migrations/`, applied with golang-migrate (`migrate -path backend/migrations -database "$DATABASE_URL" up`). Applied migrations are never edited; changes are new files. Every migration has a down file.
+Numbered SQL files in `backend/migrations/`, embedded in the API binary and applied with golang-migrate when the API (or the seed command) starts, so a fresh database needs no manual step. The same files also work with the `migrate` CLI. Applied migrations are never edited; changes are new files. Every migration has a down file.
 
 ## Seed data
 
@@ -120,12 +120,18 @@ CSV files in `backend/seed/`:
 | `users.csv` | `dealership`, `username`, `password` (plaintext **demo** values, hashed by the loader) |
 | `vehicles.csv` | `dealership`, `vin`, `make`, `model`, `year`, `price`, `age_days` (make and model are names, resolved to `model_id` by the loader) |
 
-Vehicles use `age_days` rather than a fixed date, and the loader sets `stocked_at = CURRENT_DATE - age_days`. Fixed dates would make every vehicle look older each day and eventually turn the whole demo inventory into aging stock.
+Vehicles use `age_days` rather than a fixed date, and the loader sets `stocked_at = CURRENT_DATE - age_days`. Fixed dates would make every vehicle look older each day and eventually turn the whole demo inventory into aging stock. The derivation happens once, when a row is first inserted; reloading does not change existing rows, so a long-lived demo database drifts older. To restore the intended ages, recreate the database (`docker compose down -v`, then `make seed`).
 
 The data has 3 dealerships, 7 makes, 21 models, 6 users and 150 vehicles (50 per dealership); about 27% are over 90 days old. Each dealership includes vehicles at exactly 90 and 91 days to exercise the boundary.
 
-The loader inserts with `ON CONFLICT DO NOTHING` on the natural keys (dealership name, make name, `(make, model)`, username, `(dealership, vin)`), so it can be re-run safely. It is implemented together with the backend.
+The loader inserts with `ON CONFLICT DO NOTHING` on the natural keys (dealership name, make name, `(make, model)`, username, `(dealership, vin)`), so it can be re-run safely. It is implemented in `backend/internal/seed` and run with `make seed`. Passwords are bcrypt-hashed on load, and rows that reference an unknown dealership or model fail the whole load before anything is written.
 
 ## Verification
 
-Run against a real PostgreSQL 17 container: the migration applies and reverses cleanly; the CSVs load and reload idempotently (150 vehicles both times); age 90 evaluates as not aging and 91 as aging; and the index is used for the aging predicate. Inserts with an invalid action type, a cross-dealership action, a malformed VIN, a case-variant duplicate username or make, a duplicate model, a vehicle without a model, and a repeated VIN within one dealership are each rejected by the database, while the same VIN in a different dealership is accepted.
+Automated tests run against a real PostgreSQL 18.4 container (`make test`, which needs `make up`):
+
+- `backend/migrations/schema_test.go` asserts that each integrity rule is enforced by the database with the expected error code: duplicate dealership, case-variant username or make, repeated model, missing or unknown model, repeated or malformed VIN, out-of-range year, negative price, unknown action type, over-long note, and an action on another dealership's vehicle. It also asserts that the same VIN is accepted in a different dealership and that every action type is accepted.
+- `backend/internal/seed` loads the real CSVs, checks the counts (3 dealerships, 6 users, 7 makes, 21 models, 150 vehicles), reloads them to prove idempotency, and checks that age 90 is not aging while age 91 is.
+- `backend/internal/platform` checks that migrations apply to an empty database, are a no-op on a second run, and report a migration that cannot apply.
+
+The down migration and the use of `vehicles_dealership_stocked_at_idx` for the aging predicate were checked by hand with the `migrate` CLI and `EXPLAIN` on PostgreSQL 17 and are not covered by an automated test.

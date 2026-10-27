@@ -12,13 +12,26 @@ Keyloop technical assessment, Scenario B. A multi-dealership dashboard that show
 - [Assessment brief](docs/reference/keyloop_technical_assessment.md)
 
 ## Getting started
-Requires Go 1.26+, Node 24+, Docker and [golangci-lint](https://golangci-lint.run) v2.
+Requires Go 1.26+, Node 24+, Docker, [golangci-lint](https://golangci-lint.run) v2 and, to regenerate mocks, [mockery](https://vektra.github.io/mockery/) v3.
 
 ```sh
 cp .env.example .env   # once
 make up      # start Postgres
-make check   # lint, type-check and test backend + frontend
+make seed    # apply migrations and load the demo data (safe to repeat)
+make run     # start the API on :8080
+make check   # lint, type-check and test backend + frontend; backend coverage must be >= 90% (needs `make up`)
+make mocks   # regenerate test mocks (needs mockery)
 make help    # all targets
+```
+
+If you ran an earlier version of this repo, its Postgres data volume is incompatible with Postgres 18: run `docker compose down -v` once, then `make up`.
+
+Try it (demo credentials from `backend/seed/users.csv`):
+
+```sh
+curl -s -X POST localhost:8080/api/v1/auth/login \
+  -d '{"username":"northside.manager","password":"demo-northside-1"}'
+curl -s localhost:8080/api/v1/me -H "Authorization: Bearer <access_token>"
 ```
 
 ## Layout

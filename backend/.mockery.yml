@@ -1,0 +1,15 @@
+# Generated mocks live in _test.go files next to the interface they fake, so they are
+# never compiled into the binaries or counted in coverage. Regenerate with `make mocks`.
+template: testify
+dir: "{{.InterfaceDir}}"
+filename: "mocks_test.go"
+pkgname: "{{.SrcPackageName}}"
+structname: "Mock{{.InterfaceName}}"
+packages:
+  github.com/bluesky2106/keyloop-coding-challenge/backend/internal/auth:
+    interfaces:
+      Store:
+      Authenticator:
+  github.com/bluesky2106/keyloop-coding-challenge/backend/internal/seed:
+    interfaces:
+      DB:
