@@ -13,6 +13,7 @@ Keyloop technical assessment, Scenario B. A multi-dealership dashboard that show
 Requires Go 1.26+, Node 24+, Docker and [golangci-lint](https://golangci-lint.run) v2.
 
 ```sh
+cp .env.example .env   # once
 make up      # start Postgres
 make check   # lint, type-check and test backend + frontend
 make help    # all targets
