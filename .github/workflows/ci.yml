@@ -39,3 +39,15 @@ jobs:
       - run: npm ci
         working-directory: frontend
       - run: make check
+
+  # Builds both images and runs the whole app in containers, exactly as a user would.
+  containers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: cp .env.example .env
+      - run: make up
+      - run: make smoke
+      - name: Container logs
+        if: failure()
+        run: docker compose logs

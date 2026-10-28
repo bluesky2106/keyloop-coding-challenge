@@ -17,7 +17,7 @@ import (
 
 // New returns a pool to a fresh database with all migrations applied. The database is
 // dropped when the test ends. It needs DATABASE_URL (any database on a server the user
-// may create databases on); start one with `make up`.
+// may create databases on); start one with `make db-up`.
 func New(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	pool, cleanup, err := Setup(true)
@@ -46,7 +46,7 @@ func Setup(migrate bool) (*pgxpool.Pool, func(), error) {
 
 	adminURL := os.Getenv("DATABASE_URL")
 	if adminURL == "" {
-		return nil, nil, fmt.Errorf("DATABASE_URL is not set: run `make up` and export the variables from .env")
+		return nil, nil, fmt.Errorf("DATABASE_URL is not set: run `make db-up` and export the variables from .env")
 	}
 	admin, err := pgxpool.New(ctx, adminURL)
 	if err != nil {
