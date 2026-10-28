@@ -15,7 +15,22 @@ export function Filters({ params, makes, onChange }: Props) {
   )
 
   return (
-    <section aria-label="Filters" className="filters">
+    <section aria-label="Filters" className="card filters">
+      <div className="filters__head">
+        <span className="filters__title">Filters</span>
+        {filtered && (
+          <button
+            type="button"
+            className="ghost"
+            onClick={() => {
+              onChange({ makeId: '', modelId: '', aging: 'all', minAge: '', maxAge: '' })
+            }}
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+
       <label>
         Make
         <select
@@ -89,18 +104,6 @@ export function Filters({ params, makes, onChange }: Props) {
           ))}
         </select>
       </label>
-
-      {filtered && (
-        <button
-          type="button"
-          className="secondary"
-          onClick={() => {
-            onChange({ makeId: '', modelId: '', aging: 'all', minAge: '', maxAge: '' })
-          }}
-        >
-          Clear filters
-        </button>
-      )}
     </section>
   )
 }

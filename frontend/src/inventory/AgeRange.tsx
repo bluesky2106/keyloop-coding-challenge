@@ -54,9 +54,10 @@ export function AgeRange({ minAge, maxAge, onApply }: Props) {
       <fieldset>
         <legend>Age in stock (days)</legend>
         <label>
-          From
+          <span className="sr-only">From</span>
           <input
             inputMode="numeric"
+            placeholder="From"
             value={min}
             onChange={(e) => {
               setMin(e.target.value)
@@ -66,9 +67,10 @@ export function AgeRange({ minAge, maxAge, onApply }: Props) {
           />
         </label>
         <label>
-          To
+          <span className="sr-only">To</span>
           <input
             inputMode="numeric"
+            placeholder="To"
             value={max}
             onChange={(e) => {
               setMax(e.target.value)
@@ -82,7 +84,7 @@ export function AgeRange({ minAge, maxAge, onApply }: Props) {
         </button>
       </fieldset>
       {error && (
-        <p role="alert" className="error">
+        <p role="alert" className="error age-range__error">
           {error}
         </p>
       )}

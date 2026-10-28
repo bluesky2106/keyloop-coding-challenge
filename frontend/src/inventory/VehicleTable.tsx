@@ -20,7 +20,9 @@ export function VehicleTable({ vehicles }: { vehicles: Vehicle[] }) {
         <thead>
           <tr>
             <th scope="col">Vehicle</th>
-            <th scope="col">VIN</th>
+            <th scope="col" className="col-vin">
+              VIN
+            </th>
             <th scope="col" className="num">
               Price
             </th>
@@ -37,10 +39,13 @@ export function VehicleTable({ vehicles }: { vehicles: Vehicle[] }) {
                 </Link>{' '}
                 <span className="muted">{v.year}</span>
               </th>
-              <td className="mono">{v.vin}</td>
+              <td className="mono col-vin">{v.vin}</td>
               <td className="num">{formatPrice(v.price)}</td>
               <td>
-                {plural(v.age_days, 'day')} {v.is_aging && <AgingBadge />}
+                <span className="age">
+                  <span className="age__days">{plural(v.age_days, 'day')}</span>
+                  {v.is_aging && <AgingBadge />}
+                </span>
               </td>
               <td>
                 <ActionCell vehicle={v} />

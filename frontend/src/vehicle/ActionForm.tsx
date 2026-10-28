@@ -98,11 +98,15 @@ export function ActionForm({ vehicleId }: { vehicleId: string }) {
       </div>
 
       {log.isError && (
-        <p role="alert" className="error">
+        <p role="alert" className="alert alert--error">
           {describe(log.error)}
         </p>
       )}
-      {log.isSuccess && <p role="status">Action logged.</p>}
+      {log.isSuccess && (
+        <p role="status" className="alert alert--success">
+          Action logged.
+        </p>
+      )}
       <button type="submit" disabled={log.isPending}>
         {log.isPending ? 'Saving…' : 'Log action'}
       </button>
