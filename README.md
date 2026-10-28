@@ -50,6 +50,17 @@ Requires Go 1.26+, Node 24+, [golangci-lint](https://golangci-lint.run) v2 and, 
 
 If you ran an earlier version of this repo, its Postgres data volume is incompatible with Postgres 18: run `docker compose down -v` once.
 
+## Test
+
+```sh
+make db-up   # the tests use a real PostgreSQL; each test gets a throwaway database
+make test    # backend (-race, coverage must be >= 90%) and frontend (Vitest, coverage gates)
+make check   # everything CI runs: lint, types, API-spec lint and all tests
+make smoke   # with the app running (make up): end-to-end check of the containers
+```
+
+The core business rules have direct tests: the 90-day boundary (exactly 90 days is not aging, 91 is) in `backend/internal/inventory/store_test.go`, `backend/internal/actions/store_test.go` and the seed data; tenant isolation (another dealership's vehicle is a 404) in the store and handler tests of `inventory` and `actions`; and append-only action history. [`docs/validation.md`](docs/validation.md) lists what each check covers and what it found.
+
 ## Try the API
 
 **In the browser:** open <http://localhost:8080/docs> (Swagger UI, started by `make up`).
@@ -71,6 +82,35 @@ curl -s -X POST localhost:8080/api/v1/vehicles/<vehicle_id>/actions -H "Authoriz
 ```
 
 The full contract, including filters, sorting and pagination, is in [`docs/api/openapi.yaml`](docs/api/openapi.yaml).
+
+## AI Collaboration Narrative
+
+I used Claude Code as the implementing agent and acted as architect and reviewer: the agent wrote most of the code, and I decided what to build, constrained how, and verified the result.
+
+**How I guided it**
+- **Decide before generating.** Before any code we settled the open questions: stack (Go, React with TypeScript, PostgreSQL 18.4), scope (multi-dealership login, append-only action history, fixed action types, refresh on load, a constant 90-day threshold with the configurable design documented) and every assumption, written down in [`docs/system-design.md`](docs/system-design.md). I made further calls while reviewing the design: all users of a dealership have the same permissions, VIN is unique per dealership, make and model are catalog tables instead of repeated text, and actions are only accepted on aging vehicles.
+- **Constrain the agent.** Project skills in `.claude/skills` (Go, PostgreSQL, API and auth, React, design docs) and the rules in `CLAUDE.md` (simple, surgical changes, verifiable goals) were written first, so the output follows one set of conventions.
+- **Small steps, my approval between them.** Nine pull requests, one layer each: scaffold and design, database, OpenAPI spec, backend foundation, inventory API, frontend, containers, UI polish, API reference. I reviewed and merged each before the next started, and ran independent review passes on them (`/code-review`) whose findings I sent back to the agent.
+- **Quality bars I set up front.** Backend coverage of at least 90%, enforced by `make test`; lint, type checks and API-spec lint in CI; database behaviour tested against a real PostgreSQL, not mocks.
+
+**How I verified it** (evidence in [`docs/validation.md`](docs/validation.md))
+- Tests against a real database, and every API response in the router tests validated against the OpenAPI spec, with the frontend types generated from it.
+- Running the thing: a container smoke test, and screenshots of the real app in a browser, at three widths, in both themes.
+- Independent review passes, whose suggestions were checked rather than trusted.
+
+**What verification caught**
+- The default inventory request would have failed (an unused query argument), found by the store tests.
+- A reviewer's fix for signing out did not work: the test written for it failed, and the cause was fixed instead.
+- The agent claimed `main()` was excluded from the coverage figure when it was not; the docs were corrected.
+- On a phone the table hid the Aging badge, which only looking at the screen revealed.
+- The API reference redirect would have sent the browser to the wrong port.
+
+**Where I overrode or declined**
+- I removed the dummy password hash the agent added to equalise login timing; the timing difference is recorded as a known gap.
+- Returning 413 for oversized bodies was declined (the spec has no 413).
+- The `make up` and per-service targets follow my design for starting the whole stack or one container.
+
+**Ownership.** The known gaps and what is not verified are written down in `docs/validation.md` and not hidden: no login rate limiting, no automated browser or accessibility tests, single-instance deployment only.
 
 ## Documentation
 
