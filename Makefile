@@ -8,7 +8,7 @@ COVERAGE_MIN ?= 90
 export
 
 help: ## Show available targets
-	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
+	@grep -E '^[a-z-]+:.*## ' $(firstword $(MAKEFILE_LIST)) | awk -F':.*## ' '{printf "  %-10s %s\n", $$1, $$2}'
 
 up: ## Start everything in containers: database, API, demo data, web (needs .env)
 	docker compose up -d --build --wait
