@@ -11,6 +11,16 @@ json() { python3 -c "import sys,json; print(json.load(sys.stdin)$1)"; }
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$base/")" = 200 ] || fail "the app is not served at $base/"
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$base/vehicles/anything")" = 200 ] || fail "client-side routes are not served"
 
+# The API reference is served: the redirect stays relative (it must work on any published
+# port), the page loads the bundled Swagger UI, a missing file is a 404 and not the app, and the
+# spec is byte-for-byte the one in the repository, not a stale build.
+[ "$(curl -sI "$base/docs" | tr -d '\r' | grep -i '^location:' | cut -d' ' -f2)" = "/docs/" ] || fail "/docs should redirect to /docs/"
+curl -fsS "$base/docs/" | grep -q swagger-ui-bundle.js || fail "/docs/ is not the Swagger UI page"
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$base/docs/swagger-ui-bundle.js")" = 200 ] || fail "the Swagger UI bundle is not served"
+[ "$(curl -s -o /dev/null -w '%{http_code}' "$base/docs/no-such-file")" = 404 ] || fail "a missing /docs file should be 404"
+curl -fsS "$base/docs/openapi.yaml" | cmp -s - "$(dirname "$0")/../docs/api/openapi.yaml" \
+  || fail "/docs/openapi.yaml differs from docs/api/openapi.yaml (rebuild with make up)"
+
 # The API is reachable through the same origin and refuses anonymous requests.
 [ "$(curl -s -o /dev/null -w '%{http_code}' "$base/api/v1/me")" = 401 ] || fail "/api/v1/me should be 401 without a token"
 

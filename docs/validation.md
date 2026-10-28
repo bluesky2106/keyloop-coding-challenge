@@ -20,6 +20,7 @@ make up && make smoke   # build the images, run the whole app, exercise it end t
 | Frontend coverage | 99.3% statements, 97.0% branches, 99.0% functions, 99.6% lines (gates: 90 / 85 / 90 / 90) |
 | Linters | `golangci-lint` v2 (`gosec`, `revive`, `errorlint`, `noctx` and more), ESLint with type-checked strict rules and `jsx-a11y`, Prettier, `tsc`: 0 issues |
 | API contract | `docs/api/openapi.yaml` lints clean; every response in the router tests is validated against it |
+| API reference (`/docs`) | Driven in headless Chrome against the running containers: 8 operations listed, server `/api/v1`, authorized with a token from `POST /auth/login`, executed `GET /vehicles/summary` from the UI and got the demo totals, no Content-Security-Policy violations. The smoke test checks the redirect, the page, the bundle, a 404 for a missing file and that the served spec is byte-identical to `docs/api/openapi.yaml` |
 | Container smoke test | `scripts/smoke.sh`: app and client-side routes served, anonymous request refused, login, demo data present, action logged and read back, non-aging vehicle refused |
 
 CI runs `make check` and the container smoke test on every pull request. This document does
@@ -121,6 +122,11 @@ test where one applies.
 - A mocking approach did not work for a call whose argument count varies, and was replaced by
   a small fake for that one case.
 
+**Found while adding the API reference**
+- `/docs` redirected to `/docs/` using nginx's own port (8080), so on any other published port (`WEB_PORT`) it would have sent the browser to the wrong place. The redirect is now relative, and the smoke test asserts it. This surfaced because my own test printed a URL that was not the one I had requested.
+- My first test of whether the CSP exception is needed was invalid: the browser profile had cached the wrong permanent redirect, so it tested the real app, not the strict copy. After clearing the profile it showed two blocked `data:` images, which is why the exception exists.
+- The first design used a Compose named build context to reach the spec; the installed Compose (2.13) predates that feature, so the web image is built from the repository root instead.
+
 **Tooling and dependency problems**
 - `typescript-eslint` did not support TypeScript 7, so TypeScript is pinned to 6.0; one
   generator declares a TypeScript 5 peer and is resolved with an npm `overrides` entry that the
@@ -149,6 +155,7 @@ These are real limitations, not oversights to be discovered:
 - **Re-running `make seed` does not reset vehicle ages** (existing rows are left as they are).
 - **The aging boundary follows the database session's time zone** (`CURRENT_DATE`).
 - **Prices are shown in USD** because the API does not state a currency.
+- **The API reference exists only in the containers**, not under `make web` on the host, and has no dark theme. It is public (it shows only the contract). The Swagger UI page itself is checked by hand, not by an automated test.
 - **No automated browser test suite.** End-to-end behaviour is covered by API-level tests, a
   container smoke test and component tests, plus the manual screenshot check above. There is no
   automated cross-browser run and no accessibility audit with a tool such as axe; accessibility

@@ -15,6 +15,8 @@ make up                # builds and starts the database, API, demo data and web 
 
 Open <http://localhost:8080> and sign in with a demo user, for example `northside.manager` / `demo-northside-1`. Each of the three demo dealerships has users in `backend/seed/users.csv`, and each sees only its own 50 vehicles.
 
+The API reference, where you can try every endpoint from the browser, is at <http://localhost:8080/docs> (see [Try the API](#try-the-api)).
+
 ```sh
 make smoke             # optional: exercise the running app end to end
 make down              # stop and remove the containers (the data is kept)
@@ -50,6 +52,16 @@ If you ran an earlier version of this repo, its Postgres data volume is incompat
 
 ## Try the API
 
+**In the browser:** open <http://localhost:8080/docs> (Swagger UI, started by `make up`).
+
+1. Expand `POST /auth/login`, choose **Try it out**, enter a demo user, and **Execute**.
+2. Copy the `access_token` from the response, choose **Authorize** at the top, paste it (without `Bearer`), and close the dialog.
+3. Every other endpoint now sends the token. The token is not stored, so authorize again after reloading the page.
+
+The page is served by the web container next to the API, so it needs the API to be running (`make up`) and does not exist when you run the frontend with `make web` on the host. The spec it shows is `docs/api/openapi.yaml`, copied into the image when it is built.
+
+**From the command line:**
+
 ```sh
 curl -s -X POST localhost:8080/api/v1/auth/login \
   -d '{"username":"northside.manager","password":"demo-northside-1"}'
@@ -64,7 +76,7 @@ The full contract, including filters, sorting and pagination, is in [`docs/api/o
 
 - [System design](docs/system-design.md): scope, assumptions, architecture, decisions, future work
 - [Database design](docs/database-design.md): schema, indexes, migrations, seed data
-- [API spec](docs/api/openapi.yaml) (OpenAPI 3.1)
+- [API spec](docs/api/openapi.yaml) (OpenAPI 3.1), browsable at `/docs` when the app is running
 - [Validation](docs/validation.md): how the work was verified, what that found, and the known gaps
 - [Assessment brief](docs/reference/keyloop_technical_assessment.md)
 
@@ -72,8 +84,8 @@ The full contract, including filters, sorting and pagination, is in [`docs/api/o
 
 ```
 backend/    Go API (cmd/api, cmd/seed, internal/<feature>, migrations, seed CSVs, Dockerfile)
-frontend/   React + TypeScript app (Dockerfile, nginx.conf)
-docs/       design documents, API spec, validation, reference material
+frontend/   React + TypeScript app (Dockerfile, nginx.conf; the image is built from the repo root)
+docs/       design documents, API spec (and its Swagger UI page), validation, reference material
 scripts/    smoke test for the running containers
 .claude/    project skills used when working with AI agents
 ```
