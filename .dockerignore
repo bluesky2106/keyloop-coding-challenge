@@ -1,0 +1,10 @@
+# Context for the web image, which is built from the repository root. (The backend image has
+# its own context and ignore file in backend/.)
+.git
+.github
+.claude
+.env
+backend
+**/node_modules
+**/dist
+**/coverage

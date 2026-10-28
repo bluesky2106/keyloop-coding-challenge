@@ -52,7 +52,7 @@ Everything runs in containers (`make up`). The browser only ever talks to the we
 | Component | Responsibility |
 |---|---|
 | **SPA** | Login, inventory table with URL-driven filters, aging highlight, action form and history. |
-| **Web (nginx)** | Serves the built SPA, falls back to `index.html` for client-side routes, forwards `/api/*` to the API, and sets a strict Content-Security-Policy (no third-party scripts, no framing). Hashed assets are cached for a year, `index.html` is always revalidated. |
+| **Web (nginx)** | Serves the built SPA, falls back to `index.html` for client-side routes, forwards `/api/*` to the API, serves the API reference at `/docs`, and sets a strict Content-Security-Policy (no third-party scripts, no framing). Hashed assets are cached for a year, `index.html` is always revalidated. |
 | **API** | Authentication, request validation, tenant scoping, inventory queries, action recording. Stateless, so it scales horizontally. |
 | **PostgreSQL** | Source of truth. Enforces integrity with constraints and foreign keys. |
 | **Seed loader** | Loads dealerships, users, the make and model catalog and vehicles from CSV. Runs once as a container, or on demand from the host (`make seed`). Safe to repeat. |
@@ -73,6 +73,7 @@ The API is organised by feature (`auth`, `inventory`, `actions`) with shared inf
 | Freshness | Polling, SSE, refresh on load | **Refresh on load** | Meets the requirement with no extra infrastructure. |
 | Frontend contract | Hand-written types, generated types | **Types generated from `openapi.yaml`** (`openapi-typescript`, `openapi-fetch`) | A contract change is a compile error in the UI; `npm run check:api` fails if the generated file is stale. |
 | Frontend state | Redux, context, TanStack Query | **TanStack Query** for server state, the URL for filters | No hand-written caches or loading flags; views are shareable. No global store is needed. |
+| API reference UI | None, hosted editor, bundled Swagger UI | **Swagger UI bundled into the web image at `/docs`**, spec copied from `docs/api/openapi.yaml` at build | Same origin as the API, so "Try it out" works with no CORS; one source for the spec. Costs a 1.8 MB dev dependency (`swagger-ui-dist`), a CSP exception for `data:` images on `/docs` only, and no dark theme. |
 | Styling | Component library, Tailwind, plain CSS | **Plain CSS** with variables, light and dark themes | No dependency to maintain for a handful of screens. |
 
 ## 5. Security and multi-tenancy
@@ -84,6 +85,7 @@ The API is organised by feature (`auth`, `inventory`, `actions`) with shared inf
 - All SQL is parameterised. Input is validated at the handler boundary and list endpoints cap page size.
 - Secrets come from environment variables. Demo credentials exist only in seed data.
 - **Where the browser keeps the token.** The API issues one short-lived access token and no refresh token, so the frontend must keep it somewhere. It uses `sessionStorage`: the session survives a page refresh and ends when the tab closes. The alternative, memory only, is safer against script injection but signs the user out on every refresh. The residual risk is that script running on the page could read the token, so the app renders no untrusted HTML (React escapes by default) and ships no third-party scripts. An `httpOnly` cookie with a refresh flow is the production-grade answer and is listed under future evolution.
+- `/docs` is static and public: it shows the API contract, which is also in the repository, and every call it makes needs a token like any other client. Its Content-Security-Policy differs from the app's only by allowing `data:` images, which Swagger UI's bundle needs (verified: without it the browser blocks two requests). It does not store the token.
 - When the API rejects a token (expired or revoked), the frontend discards it, drops every cached response so the next user never sees the previous user's data, and returns to the login page.
 
 ## 6. Quality approach
