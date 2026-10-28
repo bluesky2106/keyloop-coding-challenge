@@ -25,3 +25,29 @@ Suggested Free AI Coding Tools: Not sure where to start? Here are some free tool
   1. Inventory Visualization: Display a filterable list of all vehicles in a dealership's inventory (e.g., filter by make, model, age).
   2. Aging Stock Identification: Automatically identify and prominently display "aging stock" (vehicles in inventory for >90 days).
   3. Actionable Insights: Allow a manager to log and persist a status or proposed action for each aging vehicle (e.g., "Price Reduction Planned").
+
+## Deliverables & Submission
+
+Please submit the following three artifacts:
+
+1. System Design Document: Your architectural plan.
+2. Working Code: A Git repository containing your chosen service implementation.
+It must include:
+- A README.md with clear instructions on how to build, run, and test your application.
+- A dedicated section in the README for your AI Collaboration Narrative. Describe your high-level strategy for guiding the AI, your process for verifying and refining its output, and how you ensured the final quality of the code.
+- A suite of tests that validate the core business logic.
+3. Video Submission (5-10 minutes): A short video presentation covering:
+- A brief introduction to yourself and your chosen scenario.
+- A walkthrough of your system design and implementation highlights.
+- A summary of your AI collaboration story (1-2 minutes).
+- A brief demonstration of your application.
+- What you learned and any challenges you faced.
+
+## Evaluation Framework
+
+We will be evaluating your submission across four key dimensions:
+
+1. Problem Solving & System Design: The clarity, logic, and foresight of your architecture.
+2. Technical Execution: The quality, correctness, and testing of your implementation.
+3. AI Engineering & Verification: Your strategy for directing AI and your process for verifying, debugging, and owning the final solution.
+4. Communication & Presentation: The clarity and professionalism of your documentation and video.
