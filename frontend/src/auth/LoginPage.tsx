@@ -1,6 +1,7 @@
 import { useState, type SyntheticEvent } from 'react'
 import { Navigate, useLocation } from 'react-router'
 import { ApiError } from '../api/errors'
+import { BrandMark } from '../shared/icons'
 import { useAuth } from './useAuth'
 
 interface LocationState {
@@ -47,7 +48,9 @@ export function LoginPage() {
 
   return (
     <main className="login">
+      <BrandMark className="login__mark" />
       <h1>Inventory Dashboard</h1>
+      <p className="login__tagline muted">Keep an eye on aging stock across your dealership.</p>
       <form onSubmit={onSubmit} className="card login__form">
         <h2>Sign in</h2>
         <label>
@@ -74,7 +77,7 @@ export function LoginPage() {
           />
         </label>
         {error && (
-          <p role="alert" className="error">
+          <p role="alert" className="alert alert--error">
             {error}
           </p>
         )}

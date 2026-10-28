@@ -59,10 +59,14 @@ dealership never resolves to another's data. A refused action
 did not describe fails the test. They query by role and label, as a user and assistive
 technology would, not by test ids.
 
-**Visual check.** I drove a headless Chrome against the running containers and looked at
-screenshots of the login page, inventory, aging filter and vehicle page, in light and dark
-themes and at desktop and phone widths. This is a manual spot check, not an automated
-browser test suite.
+**Visual check.** I drove a headless Chrome against the running containers and inspected
+screenshots of every screen and state: login (empty and rejected), inventory (default, aging
+filter, rejected filters, no results, with a logged action), vehicle page (aging, not aging,
+not found, after logging an action), with real keyboard focus, hover and validation states,
+in light and dark themes at 1280, 820 and 390 px widths. A first pass found the design below
+production quality and a second pass after the fixes checked each change. This is a manual
+check, not an automated browser or visual-regression suite, so it will not catch a future
+regression.
 
 ## What verification found
 
@@ -88,6 +92,14 @@ test where one applies.
   the path `/app/seed`.
 - Screenshots showed spacing and wrapping defects that no test could: two cards touching, a
   heading with excess top margin, and the "Sign out" button wrapping on a phone.
+- A second visual pass found, among others: on a phone the table scrolled sideways so the Aging
+  badge and the current action were off-screen (only the row tint remained); the age inputs sat
+  5px higher than the selects next to them; the Model placeholder was truncated; the success
+  message had double the intended spacing; the notice on a non-aging vehicle was misaligned with
+  the details card. Native selects and a plain login card also looked unfinished. The interaction
+  states were driven with real key events; an earlier version of my script silently filled
+  nothing in, which showed up as screenshots with empty forms, so the script now reports
+  JavaScript errors.
 
 **Found by review passes and fixed with tests**
 - After signing in from a deep link the app could pass through the inventory page, firing

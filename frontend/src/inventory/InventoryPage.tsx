@@ -25,7 +25,7 @@ export function InventoryPage() {
         }}
       />
       {makes.isError && (
-        <div role="alert" className="error">
+        <div role="alert" className="alert alert--error">
           <p>Could not load the make and model lists.</p>
           <button
             type="button"
@@ -45,14 +45,14 @@ export function InventoryPage() {
         (vehicles.error instanceof ApiError && vehicles.error.status < 500 ? (
           // The server rejected the filters themselves (for example a hand-edited URL), so
           // asking again would fail the same way.
-          <div role="alert" className="error">
+          <div role="alert" className="alert alert--error">
             <p>These filters cannot be applied: {vehicles.error.message}</p>
             <button type="button" onClick={clearFilters}>
               Clear filters
             </button>
           </div>
         ) : (
-          <div role="alert" className="error">
+          <div role="alert" className="alert alert--error">
             <p>Could not load vehicles: {vehicles.error.message}</p>
             <button
               type="button"
