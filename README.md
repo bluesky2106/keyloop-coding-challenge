@@ -95,20 +95,8 @@ I used Claude Code as the implementing agent and acted as architect and reviewer
 
 **How I verified it** (evidence in [`docs/validation.md`](docs/validation.md))
 - Tests against a real database, and every API response in the router tests validated against the OpenAPI spec, with the frontend types generated from it.
-- Running the thing: a container smoke test, and screenshots of the real app in a browser, at three widths, in both themes.
+- Running the thing: a container smoke test, open browser and do e2e testing manually.
 - Independent review passes, whose suggestions were checked rather than trusted.
-
-**What verification caught**
-- The default inventory request would have failed (an unused query argument), found by the store tests.
-- A reviewer's fix for signing out did not work: the test written for it failed, and the cause was fixed instead.
-- The agent claimed `main()` was excluded from the coverage figure when it was not; the docs were corrected.
-- On a phone the table hid the Aging badge, which only looking at the screen revealed.
-- The API reference redirect would have sent the browser to the wrong port.
-
-**Where I overrode or declined**
-- I removed the dummy password hash the agent added to equalise login timing; the timing difference is recorded as a known gap.
-- Returning 413 for oversized bodies was declined (the spec has no 413).
-- The `make up` and per-service targets follow my design for starting the whole stack or one container.
 
 **Ownership.** The known gaps and what is not verified are written down in `docs/validation.md` and not hidden: no login rate limiting, no automated browser or accessibility tests, single-instance deployment only.
 
