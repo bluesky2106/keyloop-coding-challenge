@@ -34,8 +34,7 @@ Please submit the following three artifacts:
 2. Working Code: A Git repository containing your chosen service implementation.
 It must include:
 - A README.md with clear instructions on how to build, run, and test your application.
-- A dedicated section in the README for your AI Collaboration Narrative. Describe your high-level strategy for guiding the AI, your process for verifying and refining its output, and how you ensured the final quality
-of the code.
+- A dedicated section in the README for your AI Collaboration Narrative. Describe your high-level strategy for guiding the AI, your process for verifying and refining its output, and how you ensured the final quality of the code.
 - A suite of tests that validate the core business logic.
 3. Video Submission (5-10 minutes): A short video presentation covering:
 - A brief introduction to yourself and your chosen scenario.
